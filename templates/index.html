@@ -2,120 +2,262 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QuizWiz Ultimate</title>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root { --main-color: #e50914; --bg-color: #141414; }
-        body { margin: 0; overflow: hidden; background: var(--bg-color); color: white; font-family: 'Helvetica Neue', sans-serif; transition: background 1s; }
-        #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; }
+        :root { --netflix-red: #e50914; --bg-black: #141414; }
         
-        .page { display: none; height: 100vh; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; position: absolute; top: 0; }
+        /* 1. CORE LAYOUT FIXES */
+        body { margin: 0; background: var(--bg-black); color: white; font-family: 'Helvetica Neue', sans-serif; overflow: hidden; /* Keep body fixed for 3D bg */ }
+        
+        #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; width: 100vw; height: 100vh; }
+        
+        /* The container for each page allows scrolling if content is too tall */
+        .page { 
+            display: none; 
+            height: 100vh; 
+            width: 100%; 
+            overflow-y: auto; /* ALLOW SCROLLING */
+            overflow-x: hidden;
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: flex-start; /* Start from top so we can scroll down */
+            padding-top: 50px; /* Space from top */
+            position: absolute; 
+            top: 0; 
+            box-sizing: border-box;
+            padding-bottom: 50px;
+        }
         .active { display: flex !important; animation: fadeIn 0.8s; }
         
-        .glass-card { background: rgba(0,0,0,0.85); padding: 40px; border-radius: 10px; border-top: 4px solid var(--main-color); width: 400px; backdrop-filter: blur(10px); }
+        /* UI COMPONENTS - RESPONSIVE */
+        .glass-card { 
+            background: rgba(0,0,0,0.9); 
+            padding: 30px; 
+            border-radius: 10px; 
+            border-top: 4px solid var(--netflix-red); 
+            width: 90%; 
+            max-width: 500px; /* Max width for laptop, shrinks for phone */
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
+            margin-bottom: 20px;
+        }
         
-        h1 { font-size: 3rem; text-shadow: 2px 2px 10px black; }
-        input, select { width: 90%; padding: 15px; margin: 10px 0; background: #333; border: 1px solid #555; color: white; border-radius: 4px; font-size: 1.1rem; }
-        button { width: 100%; padding: 15px; background: var(--main-color); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 4px; }
-        button:hover { filter: brightness(1.2); }
+        h1 { font-size: 2.5rem; margin: 0 0 20px 0; text-shadow: 0 0 20px rgba(229,9,20,0.6); text-align: center; }
         
-        /* Game UI */
-        .question-box { font-size: 2rem; margin-bottom: 20px; max-width: 800px; }
-        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 800px; }
-        .option-btn { background: #333; padding: 20px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
-        .option-btn:hover { background: #444; }
+        input, select { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 8px 0; 
+            background: #333; 
+            border: 1px solid #444; 
+            color: white; 
+            border-radius: 4px; 
+            font-size: 1rem; 
+            box-sizing: border-box; /* Fix padding issues */
+        }
         
-        #timer-bar { width: 100%; height: 10px; background: #333; position: fixed; top: 0; left: 0; }
-        #timer-fill { width: 100%; height: 100%; background: var(--main-color); }
+        button { width: 100%; padding: 15px; background: var(--netflix-red); color: white; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 15px; border-radius: 4px; }
+        button.secondary { background: #333; border: 1px solid #555; }
         
-        /* Chips */
-        #lobby-list { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 20px; max-width: 600px; }
-        .player-chip { background: #222; padding: 8px 15px; border-radius: 20px; border: 1px solid #444; }
+        /* GAME UI */
+        .question-box { font-size: 1.8rem; margin-bottom: 20px; width: 90%; max-width: 800px; line-height: 1.3; font-weight: bold; text-align: center; }
+        
+        .options-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; /* 2 columns on laptop */
+            gap: 15px; 
+            width: 90%; 
+            max-width: 800px; 
+        }
+        
+        .option-btn { background: linear-gradient(145deg, #2a2a2a, #333); padding: 20px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; border: 2px solid transparent; text-align: center; }
+        .option-btn:hover { border-color: white; }
+        
+        #timer-bar { width: 100%; height: 8px; background: #222; position: fixed; top: 0; left: 0; z-index: 100; }
+        #timer-fill { width: 100%; height: 100%; background: var(--netflix-red); }
+        
+        /* ADMIN PANEL - MOBILE OPTIMIZED */
+        .admin-row { display: flex; gap: 10px; }
+        
+        /* MEDIA QUERY FOR PHONES */
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; }
+            .options-grid { grid-template-columns: 1fr; } /* Stack buttons on phone */
+            .admin-row { flex-direction: column; gap: 0; } /* Stack admin inputs */
+            .glass-card { padding: 20px; width: 95%; }
+            .question-box { font-size: 1.4rem; }
+        }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
     <canvas id="bg-canvas"></canvas>
     
-    <audio id="bgm" loop><source src="/static/audio/lobby.mp3"></audio>
     <audio id="sfx-join"><source src="/static/audio/tadum.mp3"></audio>
 
-    <div id="p-login" class="page active">
+    <div id="p-login" class="page active" style="justify-content: center;">
         <h1>QUIZWIZ</h1>
         <div class="glass-card">
             <input type="text" id="username" placeholder="Enter Name">
-            <button onclick="joinGame()">ENTER</button>
-            <p style="color:#666; font-size:0.8rem; margin-top:10px;">Login as 'Admin' to host</p>
+            <button onclick="joinGame()">JOIN GAME</button>
+            <p style="color:#666; font-size:0.8rem; margin-top:15px; text-align:center;">Host? Enter name as 'Admin'</p>
         </div>
     </div>
 
     <div id="p-lobby" class="page">
         <h1>LOBBY</h1>
-        <div id="admin-controls" style="display:none; margin-bottom: 20px;">
-            <label>Select Theme:</label>
-            <select id="category-select" onchange="changeCategory()">
-                </select>
-            <button onclick="startGame()">START GAME ▶</button>
+        <h3 id="player-count" style="color:#999; margin-bottom: 20px;">Waiting for players...</h3>
+        
+        <div id="lobby-list" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; width:90%; margin-bottom:20px;"></div>
+        
+        <div id="admin-controls" class="glass-card" style="display:none; max-width: 600px;">
+            <h3 style="margin-top:0;">HOST CONTROLS</h3>
+            
+            <div style="background:#222; padding:15px; border-radius:5px; margin-bottom:15px;">
+                <label>Question Count: <span id="limit-val">5</span></label>
+                <input type="range" id="q-limit" min="3" max="20" value="5" oninput="document.getElementById('limit-val').innerText = this.value">
+                <div style="margin-top:10px;">
+                    <input type="checkbox" id="use-custom" style="width:auto;"> Use Custom Questions Only
+                </div>
+                <button onclick="startGame()">▶ START GAME</button>
+            </div>
+
+            <div style="background:#222; padding:15px; border-radius:5px;">
+                <h4 style="margin:0 0 10px 0; color:var(--netflix-red);">Add Custom Question</h4>
+                <input type="text" id="cq-text" placeholder="Question Text (e.g. Who is the boss?)">
+                
+                <div class="admin-row">
+                    <input type="text" id="cq-o1" placeholder="Option A">
+                    <input type="text" id="cq-o2" placeholder="Option B">
+                </div>
+                <div class="admin-row">
+                    <input type="text" id="cq-o3" placeholder="Option C">
+                    <input type="text" id="cq-o4" placeholder="Option D">
+                </div>
+                <div class="admin-row">
+                    <select id="cq-correct">
+                        <option value="0">Correct: Option A</option>
+                        <option value="1">Correct: Option B</option>
+                        <option value="2">Correct: Option C</option>
+                        <option value="3">Correct: Option D</option>
+                    </select>
+                    <select id="cq-diff">
+                        <option value="1">Easy (15s)</option>
+                        <option value="2">Medium (25s)</option>
+                        <option value="3">Hard (35s)</option>
+                    </select>
+                </div>
+                <button class="secondary" onclick="addQuestion()">+ ADD TO POOL</button>
+                <p id="admin-status" style="color:#0f0; font-size:0.8rem; margin-top:5px;"></p>
+            </div>
         </div>
-        <h3 id="player-count">Waiting for players...</h3>
-        <div id="lobby-list"></div>
-        <p id="wait-msg">Host is choosing the vibe...</p>
+        
+        <p id="wait-msg">Host is preparing the quiz...</p>
     </div>
 
-    <div id="p-game" class="page">
+    <div id="p-game" class="page" style="justify-content: center;">
         <div id="timer-bar"><div id="timer-fill"></div></div>
-        <div style="display:flex; justify-content:space-between; width: 800px; margin-bottom: 10px; color:#aaa;">
-            <span id="q-points">1000 Pts</span>
-            <span id="q-num">1/10</span>
+        
+        <div style="display:flex; justify-content:space-between; width: 90%; max-width: 800px; margin-bottom: 10px; color:#aaa; font-weight:bold;">
+            <span id="q-points">PTS: 1000</span>
+            <span id="q-num">Q: 1/10</span>
         </div>
+        
         <div class="question-box" id="q-text">Loading...</div>
         <div class="options-grid" id="options-container"></div>
-        <div id="admin-next" style="display:none; margin-top:30px;">
-            <button onclick="nextQ()" style="width:200px;">NEXT ⏩</button>
+        
+        <div id="admin-next" style="display:none; margin-top:30px; width: 90%; max-width: 300px;">
+            <button onclick="nextQ()">NEXT QUESTION ⏩</button>
         </div>
     </div>
 
-    <div id="p-result" class="page">
-        <h1>FINAL SCORES</h1>
-        <div id="leaderboard-box"></div>
+    <div id="p-result" class="page" style="justify-content: center;">
+        <h1>LEADERBOARD</h1>
+        <div id="leaderboard-box" style="width:90%; max-width:500px;"></div>
     </div>
 
     <script>
         const socket = io();
         let isAdmin = false;
 
-        // --- GAMEPLAY FUNCTIONS ---
+        // --- AUDIO ---
+        const audio = {
+            lobby: new Audio('/static/audio/lobby.mp3'),
+            playlist: ['/static/audio/game1.mp3', '/static/audio/game2.mp3', '/static/audio/game3.mp3'],
+            currentTrack: null,
+
+            playLobby: function() {
+                this.stop();
+                this.lobby.loop = true;
+                this.lobby.volume = 0.4;
+                this.lobby.play().catch(e => {});
+            },
+            playGame: function() {
+                this.stop();
+                const track = this.playlist[Math.floor(Math.random() * this.playlist.length)];
+                this.currentTrack = new Audio(track);
+                this.currentTrack.volume = 0.3;
+                this.currentTrack.play().catch(e => {});
+            },
+            stop: function() {
+                this.lobby.pause();
+                this.lobby.currentTime = 0;
+                if(this.currentTrack) {
+                    this.currentTrack.pause();
+                    this.currentTrack = null;
+                }
+            }
+        };
+
+        // --- ACTIONS ---
         function joinGame() {
             const name = document.getElementById('username').value;
-            if(!name) return alert("Name required!");
-            document.getElementById('sfx-join').play().catch(()=>{});
-            document.getElementById('bgm').play().catch(()=>{});
+            if(!name) return alert("Enter Name");
+            audio.playLobby();
             socket.emit('join_game', { name: name });
         }
-        function changeCategory() {
-            const cat = document.getElementById('category-select').value;
-            socket.emit('select_category', { category: cat });
+        function startGame() {
+            const limit = document.getElementById('q-limit').value;
+            const useCustom = document.getElementById('use-custom').checked;
+            socket.emit('admin_start_game', { limit: limit, use_custom: useCustom });
         }
-        function startGame() { socket.emit('start_game'); }
+        function addQuestion() {
+            const q = document.getElementById('cq-text').value;
+            if(!q) return alert("Type a question first!");
+            
+            socket.emit('add_custom_question', {
+                q: q,
+                o1: document.getElementById('cq-o1').value,
+                o2: document.getElementById('cq-o2').value,
+                o3: document.getElementById('cq-o3').value,
+                o4: document.getElementById('cq-o4').value,
+                correct: document.getElementById('cq-correct').value,
+                diff: document.getElementById('cq-diff').value
+            });
+            document.getElementById('cq-text').value = '';
+            document.getElementById('cq-o1').value = '';
+            document.getElementById('cq-o2').value = '';
+            document.getElementById('cq-o3').value = '';
+            document.getElementById('cq-o4').value = '';
+        }
         function nextQ() { socket.emit('admin_next_question'); }
-        
         function submitAnswer(idx) {
             const btns = document.querySelectorAll('.option-btn');
-            btns.forEach(b => b.style.opacity = 0.5);
+            btns.forEach(b => b.style.opacity = 0.3);
             btns[idx].style.opacity = 1;
-            btns[idx].style.border = "2px solid white";
+            btns[idx].style.background = "white";
+            btns[idx].style.color = "black";
             
-            // Get width of timer bar to calculate time left
-            const barWidth = document.getElementById('timer-fill').offsetWidth;
-            const totalWidth = document.getElementById('timer-bar').offsetWidth;
-            const timeLeft = (barWidth / totalWidth) * 10; // Approx
-            
+            const totalW = document.getElementById('timer-bar').offsetWidth;
+            const currW = document.getElementById('timer-fill').offsetWidth;
+            const timeLeft = (currW / totalW) * 30; 
             socket.emit('submit_answer', { answer_index: idx, time_left: timeLeft });
         }
 
-        // --- SOCKET EVENTS ---
+        // --- SOCKETS ---
         socket.on('join_success', (data) => {
             isAdmin = data.is_admin;
             switchPage('p-lobby');
@@ -124,46 +266,40 @@
                 document.getElementById('wait-msg').style.display = 'none';
             }
         });
-
-        socket.on('admin_init', (data) => {
-            const sel = document.getElementById('category-select');
-            sel.innerHTML = "";
-            data.categories.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c;
-                opt.innerText = c.toUpperCase();
-                sel.appendChild(opt);
-            });
+        socket.on('admin_msg', (data) => {
+            const status = document.getElementById('admin-status');
+            status.innerText = data.msg;
+            setTimeout(() => status.innerText = '', 3000);
         });
-
-        socket.on('theme_change', (data) => {
-            update3DTheme(data.theme);
-        });
-
         socket.on('update_lobby', (data) => {
             const list = document.getElementById('lobby-list');
             list.innerHTML = '';
-            document.getElementById('player-count').innerText = `${data.players.length} Players`;
+            document.getElementById('player-count').innerText = `${data.players.length} Ready`;
             data.players.forEach(p => {
-                list.innerHTML += `<div class="player-chip">${p[0]}</div>`;
+                list.innerHTML += `<div style="background:#333; padding:5px 15px; border-radius:20px; border:1px solid #555;">${p[0]}</div>`;
             });
         });
-
+        socket.on('game_started', () => {
+            audio.playGame();
+            visuals.setMode('warp');
+        });
         socket.on('new_question', (data) => {
             switchPage('p-game');
+            const effects = ['cube_field', 'ring', 'wave', 'rain'];
+            visuals.setMode(effects[Math.floor(Math.random() * effects.length)]);
+            
             document.getElementById('q-text').innerText = data.q;
-            document.getElementById('q-num').innerText = `${data.current}/${data.total}`;
-            document.getElementById('q-points').innerText = `${data.points} POINTS`;
+            document.getElementById('q-num').innerText = `Q: ${data.current}/${data.total}`;
+            document.getElementById('q-points').innerText = `PTS: ${data.points}`;
             
             const cont = document.getElementById('options-container');
             cont.innerHTML = '';
             data.options.forEach((opt, i) => {
                 cont.innerHTML += `<div class="option-btn" onclick="submitAnswer(${i})">${opt}</div>`;
             });
-            
+
             if(isAdmin) document.getElementById('admin-next').style.display = 'block';
 
-            // Timer Animation
             const fill = document.getElementById('timer-fill');
             fill.style.transition = 'none';
             fill.style.width = '100%';
@@ -172,13 +308,14 @@
                 fill.style.width = '0%';
             }, 100);
         });
-        
         socket.on('game_over', (data) => {
             switchPage('p-result');
+            audio.stop();
+            visuals.setMode('slow');
             const box = document.getElementById('leaderboard-box');
             box.innerHTML = '';
             data.leaderboard.forEach((p, i) => {
-                box.innerHTML += `<div style="background:#333; padding:15px; margin:5px; border-radius:5px; display:flex; justify-content:space-between;"><span>#${i+1} ${p[0]}</span><b>${p[1]}</b></div>`;
+                box.innerHTML += `<div style="background:#222; padding:15px; margin:5px; display:flex; justify-content:space-between; border-radius:4px;"><span>#${i+1} ${p[0]}</span><span style="color:var(--netflix-red)">${p[1]}</span></div>`;
             });
         });
 
@@ -187,62 +324,49 @@
             document.getElementById(id).classList.add('active');
         }
 
-        // --- 3D VISUALS ENGINE ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({canvas: document.getElementById('bg-canvas'), alpha: true});
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.position.z = 5;
-
-        let particles;
-        
-        function createParticles(color, type) {
-            if(particles) scene.remove(particles);
-            
-            const geo = new THREE.BufferGeometry();
-            const pos = [];
-            const count = 1500;
-            
-            for(let i=0; i<count*3; i++) {
-                pos.push((Math.random()-0.5)*15);
+        // --- 3D VISUALS ---
+        const visuals = {
+            scene: new THREE.Scene(),
+            camera: new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000),
+            renderer: new THREE.WebGLRenderer({canvas: document.getElementById('bg-canvas'), alpha: true}),
+            particles: null,
+            mode: 'slow',
+            time: 0,
+            init: function() {
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.camera.position.z = 50;
+                const geo = new THREE.BufferGeometry();
+                const pos = [];
+                for(let i=0; i<2000*3; i++) pos.push((Math.random()-0.5)*100);
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+                const mat = new THREE.PointsMaterial({color: 0xe50914, size: 0.5});
+                this.particles = new THREE.Points(geo, mat);
+                this.scene.add(this.particles);
+                this.animate();
+            },
+            setMode: function(newMode) { this.mode = newMode; },
+            animate: function() {
+                requestAnimationFrame(this.animate.bind(this));
+                this.time += 0.01;
+                const positions = this.particles.geometry.attributes.position.array;
+                for(let i=0; i<2000; i++) {
+                    const x = positions[i*3], y = positions[i*3+1], z = positions[i*3+2];
+                    if(this.mode === 'slow') positions[i*3+1] += Math.sin(this.time + x) * 0.02;
+                    else if(this.mode === 'warp') { positions[i*3+2] += 2; if(positions[i*3+2] > 50) positions[i*3+2] = -50; }
+                    else if(this.mode === 'wave') positions[i*3+1] = Math.sin(x * 0.1 + this.time * 2) * 10;
+                    else if(this.mode === 'ring') { const angle = this.time + i * 0.01; positions[i*3] = Math.cos(angle) * 30 + (Math.random()-0.5)*2; positions[i*3+2] = Math.sin(angle) * 30 + (Math.random()-0.5)*2; }
+                    else if(this.mode === 'rain') { positions[i*3+1] -= 0.5; if(positions[i*3+1] < -50) positions[i*3+1] = 50; }
+                }
+                this.particles.geometry.attributes.position.needsUpdate = true;
+                this.renderer.render(this.scene, this.camera);
             }
-            
-            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-            const mat = new THREE.PointsMaterial({color: color, size: type === 'square' ? 0.08 : 0.05, transparent: true});
-            particles = new THREE.Points(geo, mat);
-            scene.add(particles);
-        }
-
-        // Initial Theme
-        createParticles(0xe50914, 'dot'); // Netflix Red
-
-        function update3DTheme(theme) {
-            const root = document.documentElement;
-            if(theme === 'kenya') {
-                root.style.setProperty('--main-color', '#009900'); // Green
-                root.style.setProperty('--bg-color', '#000000');
-                createParticles(0xffffff, 'dot'); // White stars
-            } else if(theme === 'romance') {
-                root.style.setProperty('--main-color', '#ff69b4'); // Hot Pink
-                createParticles(0xff69b4, 'dot'); 
-            } else if(theme === 'math') {
-                root.style.setProperty('--main-color', '#00a8e1'); // Tech Blue
-                createParticles(0x00a8e1, 'square'); // Squares for tech
-            } else {
-                root.style.setProperty('--main-color', '#e50914'); // Netflix Red
-                createParticles(0xe50914, 'dot');
-            }
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if(particles) {
-                particles.rotation.y += 0.002;
-                particles.rotation.x += 0.001;
-            }
-            renderer.render(scene, camera);
-        }
-        animate();
+        };
+        visuals.init();
+        window.addEventListener('resize', () => {
+            visuals.renderer.setSize(window.innerWidth, window.innerHeight);
+            visuals.camera.aspect = window.innerWidth / window.innerHeight;
+            visuals.camera.updateProjectionMatrix();
+        });
     </script>
 </body>
 </html>
