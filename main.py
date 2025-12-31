@@ -1,6 +1,7 @@
 # ==============================================================================
-#  META-LEVEL TRIVIA OS | ENTERPRISE EDITION v11.0 (ULTIMATE)
-#  ARCHITECT: GEMINI | TARGET: PRODUCTION
+#  META-LEVEL TRIVIA OS | ENTERPRISE EDITION v14.0 (PLATINUM)
+#  TARGET: PRODUCTION | ARCHITECT: GEMINI
+#  STATUS: FINAL BUILD - INCLUDES PDF, QR, ROOM CODES, ROASTS
 # ==============================================================================
 
 import eventlet
@@ -8,30 +9,46 @@ eventlet.monkey_patch()
 
 import logging
 import random
+import string
 import time
 import json
 import re
 import os
 import uuid
-from flask import Flask, render_template, request, jsonify
+import io
+import socket
+
+from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
-# --- PDF LIBRARY CHECK ---
-# We try to import PyPDF2. If it fails, we warn the user but don't crash.
+# ------------------------------------------------------------------------------
+#  LIBRARY CHECK: PDF PARSING
+# ------------------------------------------------------------------------------
 try:
     import PyPDF2
     PDF_ENABLED = True
 except ImportError:
     PyPDF2 = None
     PDF_ENABLED = False
-    print("!! SYSTEM WARNING: PyPDF2 not installed. PDF parsing disabled. Run: pip install PyPDF2 !!")
+    print("!! SYSTEM WARNING: PyPDF2 not installed. PDF parsing disabled. !!")
+
+# ------------------------------------------------------------------------------
+#  LIBRARY CHECK: QR CODE GENERATION
+# ------------------------------------------------------------------------------
+try:
+    import qrcode
+    QR_ENABLED = True
+except ImportError:
+    qrcode = None
+    QR_ENABLED = False
+    print("!! SYSTEM WARNING: qrcode not installed. QR generation disabled. !!")
 
 # ==============================================================================
 #  1. SYSTEM CONFIGURATION
 # ==============================================================================
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'Meta_Galactic_Secret_Key_Final_X99_Ultra'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB Max Upload for PDFs
+app.config['SECRET_KEY'] = 'Meta_Galactic_Secret_Key_Final_X99_Ultra_Max_Platinum'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB Max Upload
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 # Configure Enterprise Logging
@@ -43,30 +60,34 @@ logger = logging.getLogger("TriviaCore")
 # ==============================================================================
 
 class ContentManager:
-    """ Manages static data, default questions, and dynamic insults. """
+    """ 
+    Manages static data, default questions, and dynamic insults. 
+    Centralized for easy updating.
+    """
     
     ROASTS = {
         'low': [
-            "My grandmother types faster than that.", 
+            "My grandmother types faster than that, and she is using a typewriter.", 
             "Did you panic? You looked like you panicked.",
             "Are you playing with your elbows?", 
-            "I've seen smarter toast.",
+            "I've seen smarter toast in a blackout.",
             "Participation trophies for everyone at the bottom!", 
             "System Error: User intelligence not found.",
-            "Yikes. Just... yikes."
+            "Yikes. Just... yikes.",
+            "Is your screen turned on? Just checking."
         ],
         'mid': [
-            "Mediocrity achieved. Congratulations.", 
-            "Not terrible. Not great. Just... there.",
+            "Mediocrity achieved. Congratulations on being average.", 
+            "Not terrible. Not great. Just... existing.",
             "You're the vanilla ice cream of trivia players.", 
-            "Safe. Boring. Middle of the pack.",
-            "Keep trying, you might reach 'average' soon."
+            "Safe. Boring. Firmly in the middle of the pack.",
+            "Keep trying, you might reach 'above average' soon."
         ],
         'high': [
-            "Okay, who is cheating?", 
+            "Okay, who is cheating? Reveal yourself.", 
             "Touch grass, nerd.", 
-            "Big brain energy detected.",
-            "Don't get cocky, it's just trivia.",
+            "Big brain energy detected. Proceed with caution.",
+            "Don't get cocky, it's just trivia, not rocket science.",
             "Impressive. Most impressive."
         ]
     }
@@ -97,54 +118,39 @@ class DataParser:
     def parse_raw_text(text):
         questions = []
         # Split text into blocks based on double newlines OR numbered lists (1., 2., etc)
-        # This regex looks for double newlines OR a digit followed by a dot/paren at the start of a line
         blocks = re.split(r'\n\s*\n|(?=\n\d+[\.)])', text)
         
         for block in blocks:
             if not block.strip(): continue
             
-            # Clean up lines
             lines = [l.strip() for l in block.split('\n') if l.strip()]
-            
-            # We need at least a question and some options
             if len(lines) < 3: continue 
 
-            # 1. Question Parsing (First line usually)
-            # Remove leading "1.", "Q1:", etc.
+            # 1. Question Parsing
             q_text = re.sub(r'^\d+[\.:\)]\s*|^Q\d+[:\.]\s*', '', lines[0], flags=re.IGNORECASE)
             
             # 2. Options & Answer Parsing
             options = []
-            ans_idx = 0 # Default to A if not found
+            ans_idx = 0 
             
             for line in lines[1:]:
-                # Check for Answer Key lines like "Answer: A" or "Correct: B"
+                # Check for Answer Key
                 if "ANSWER:" in line.upper() or "CORRECT:" in line.upper():
-                    # Extract the last character (A, B, C, or D)
                     parts = line.split(':')
                     if len(parts) > 1:
                         char = parts[-1].strip().upper()
-                        # Map Letter to Index
                         ans_idx = {'A':0, 'B':1, 'C':2, 'D':3}.get(char[0], 0)
                     continue
                 
-                # Check for Options (A. B. C. D.)
-                # Regex looks for "A." or "a)" at start of line
+                # Check for Options
                 if re.match(r'^[A-D][\.\)]', line, re.IGNORECASE):
-                    # Remove the "A." part to get just the text
                     val = re.sub(r'^[A-D][\.\)]\s*', '', line, flags=re.IGNORECASE).strip()
                     options.append(val)
             
-            # Validation: Ensure we have exactly 4 options for the UI
-            # If less, fill with placeholders. If more, slice.
             while len(options) < 4: 
                 options.append(f"Option {len(options)+1}")
             
-            questions.append({
-                "q": q_text, 
-                "opts": options[:4], 
-                "a": ans_idx
-            })
+            questions.append({"q": q_text, "opts": options[:4], "a": ans_idx})
             
         return questions
 
@@ -190,9 +196,14 @@ class GameEngine:
         self.active = False
         self.config = {'limit': 10, 'time': 15}
         self.use_custom = False
+        self.room_code = self.generate_room_code()
+
+    def generate_room_code(self):
+        """ Generates a 4-letter unique room code """
+        return ''.join(random.choices(string.ascii_uppercase, k=4))
 
     def join(self, sid, name, avatar, force_admin):
-        # Logic: If name contains 'Admin' or force_admin is True, grant privileges
+        # Admin Logic
         is_admin = force_admin or "ADMIN" in name.upper() or "HOST" in name.upper()
         p = Player(sid, name, avatar, is_admin)
         self.players[sid] = p
@@ -205,7 +216,6 @@ class GameEngine:
             del self.players[sid]
 
     def add_questions(self, q_list):
-        """ Adds bulk questions from PDF/Text import to the FRONT of the queue """
         self.questions = q_list + self.questions
         self.use_custom = True
         logger.info(f"Bulk Import: {len(q_list)} questions added.")
@@ -216,12 +226,10 @@ class GameEngine:
         self.q_index = 0
         self.active = True
         
-        # Load Defaults if empty
         if not self.questions:
             self.questions = list(ContentManager.DEFAULTS)
             random.shuffle(self.questions)
             
-        # Reset Players stats for new game
         for p in self.players.values(): 
             p.score = 0; p.streak = 0; p.has_answered = False
             
@@ -234,32 +242,25 @@ class GameEngine:
         q = self.questions[self.q_index] if self.q_index < len(self.questions) else None
         
         if q and idx == q['a']:
-            # Scoring Algorithm: 
-            # Base(1000) + TimeBonus(0-500) + StreakBonus(50 per streak)
             pts = 1000 + int(float(t_left)*10) + (p.streak*50)
             p.score += pts
             p.streak += 1
         else:
-            p.streak = 0 # Reset streak on wrong answer
+            p.streak = 0 # Reset streak
             
         p.has_answered = True
 
     def next(self):
         self.q_index += 1
-        # Reset answer flags for next round
         for p in self.players.values(): p.has_answered = False
-        
-        # Check if game should continue
         valid_idx = self.q_index < len(self.questions)
         within_limit = self.q_index < self.config['limit']
         return valid_idx and within_limit
 
     def get_leaderboard(self):
-        # Sort by score descending
         s = sorted(self.players.values(), key=lambda x: x.score, reverse=True)
         return [p.to_dict() for p in s]
 
-# Initialize Global Game Engine
 engine = GameEngine()
 
 # ==============================================================================
@@ -268,21 +269,30 @@ engine = GameEngine()
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    # Pass room code to template for easy sharing
+    return render_template('index.html', room_code=engine.room_code)
+
+@app.route('/qrcode')
+def get_qrcode():
+    """ Generates a dynamic QR Code for the Room """
+    if not QR_ENABLED: return "QR Module Missing", 404
+    
+    # Construct the URL (e.g., http://192.168.1.5:5000?code=ABCD)
+    host_url = request.host_url
+    target_url = f"{host_url}?code={engine.room_code}"
+    
+    img = qrcode.make(target_url)
+    buf = io.BytesIO()
+    img.save(buf)
+    buf.seek(0)
+    return send_file(buf, mimetype='image/png')
 
 @app.route('/upload_parse', methods=['POST'])
 def handle_upload():
-    """ 
-    AJAX Endpoint for parsing data without reloading page.
-    Handles Raw Text or PDF Files.
-    """
     data = []
     try:
-        # Check 1: Raw Text Paste
         if 'raw_text' in request.form and request.form['raw_text'].strip():
             data = DataParser.parse_raw_text(request.form['raw_text'])
-            
-        # Check 2: File Upload
         elif 'file' in request.files:
             f = request.files['file']
             if f.filename.endswith('.pdf'):
@@ -299,14 +309,27 @@ def handle_upload():
 
 @socketio.on('join_game')
 def on_join(d):
+    # --- ROOM CODE VALIDATION ---
+    client_code = d.get('room_code', '').upper().strip()
+    is_force_admin = d.get('force_admin', False)
+    
+    # If not admin, code must match
+    if not is_force_admin and client_code != engine.room_code:
+        emit('error_msg', {'msg': "INVALID ROOM CODE"}, to=request.sid)
+        return
+
     # Register Player
-    p = engine.join(request.sid, d.get('name'), d.get('avatar'), d.get('force_admin'))
+    p = engine.join(request.sid, d.get('name'), d.get('avatar'), is_force_admin)
     join_room('game_room')
     
-    # 1. Private Confirmation (Tells client if they are Admin)
-    emit('join_success', {'is_admin': p.is_admin, 'sid': request.sid}, to=request.sid)
+    # 1. Private Confirmation (Send room code back to client)
+    emit('join_success', {
+        'is_admin': p.is_admin, 
+        'sid': request.sid,
+        'room_code': engine.room_code 
+    }, to=request.sid)
     
-    # 2. Public Broadcast (Update Lobby for everyone)
+    # 2. Public Broadcast
     emit('update_lobby', {'players': engine.get_leaderboard()}, to='game_room')
 
 @socketio.on('disconnect')
@@ -316,7 +339,6 @@ def on_disconnect():
 
 @socketio.on('admin_bulk_import')
 def on_import(d):
-    # Receive verified questions from frontend and add to engine
     engine.add_questions(d.get('questions', []))
     emit('admin_msg', {'msg': f"DATABASE UPDATED: {len(d['questions'])} QUESTIONS ADDED"}, to=request.sid)
 
@@ -324,7 +346,6 @@ def on_import(d):
 def on_start(d):
     engine.start(d.get('limit'), d.get('time'))
     emit('game_started', {}, to='game_room')
-    # Delay for visual effect
     socketio.sleep(1)
     send_q_payload()
 
@@ -337,26 +358,17 @@ def on_next():
     if engine.next():
         send_q_payload()
     else:
-        # Game Over
         emit('game_over', {'leaderboard': engine.get_leaderboard()}, to='game_room')
 
 @socketio.on('admin_show_scores')
 def on_scores():
     board = engine.get_leaderboard()
-    
-    # Calculate Roast Tier based on top score
     top = board[0][1] if board else 0
     tier = 'high' if top > 8000 else ('mid' if top > 3000 else 'low')
     roast = ContentManager.get_roast(tier)
-    
-    emit('show_intermediate_results', {
-        'leaderboard': board, 
-        'roast': roast,
-        'title': "ROUND ANALYSIS"
-    }, to='game_room')
+    emit('show_intermediate_results', {'leaderboard': board, 'roast': roast, 'title': "ROUND ANALYSIS"}, to='game_room')
 
 def send_q_payload():
-    """ Helper to send question data to all clients """
     q = engine.questions[engine.q_index]
     socketio.emit('new_question', {
         'q': q['q'], 
@@ -368,7 +380,9 @@ def send_q_payload():
 
 if __name__ == '__main__':
     print("---------------------------------------------------------")
-    print(" META TRIVIA OS [ONLINE] | PORT 5000")
-    print(" PDF SUPPORT: " + ("ENABLED" if PDF_ENABLED else "DISABLED"))
+    print(f" META TRIVIA OS [ONLINE]")
+    print(f" ROOM CODE: {engine.room_code}")
+    print(f" PDF SUPPORT: {'ENABLED' if PDF_ENABLED else 'DISABLED'}")
+    print(f" QR SUPPORT: {'ENABLED' if QR_ENABLED else 'DISABLED'}")
     print("---------------------------------------------------------")
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

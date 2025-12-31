@@ -9,7 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
     <style>
         /* --- CORE VARIABLES --- */
@@ -26,124 +26,304 @@
         }
 
         /* --- GLOBAL RESET --- */
-        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        * { 
+            box-sizing: border-box; 
+            user-select: none; 
+            -webkit-tap-highlight-color: transparent; 
+        }
         
         body { 
-            margin: 0; padding: 0; background-color: var(--bg-deep); 
-            color: white; font-family: var(--font-main); 
-            overflow: hidden; height: 100vh; width: 100vw;
+            margin: 0; 
+            padding: 0; 
+            background-color: var(--bg-deep); 
+            color: white; 
+            font-family: var(--font-main); 
+            overflow: hidden; 
+            height: 100vh; 
+            width: 100vw; 
         }
 
-        /* --- BACKGROUND LAYER --- */
-        #visual-engine { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; }
+        /* --- BACKGROUND LAYERS --- */
+        #visual-engine { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            z-index: -1; 
+        }
         
         /* Scanline Overlay for Retro feel */
         #scanlines {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 2px, 3px 100%; opacity: 0.3;
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            pointer-events: none; 
+            z-index: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%; 
+            opacity: 0.3;
         }
 
         /* --- PAGE MANAGEMENT --- */
         .view-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: none; flex-direction: column; align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-            padding: 20px; z-index: 10;
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%;
+            display: none; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center;
+            opacity: 0; 
+            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            padding: 20px; 
+            z-index: 10;
         }
-        .view-layer.active { display: flex; opacity: 1; }
+        .view-layer.active { 
+            display: flex; 
+            opacity: 1; 
+        }
 
         /* --- GLASS CARDS (The main container) --- */
         .glass-hud {
-            background: var(--glass-panel); backdrop-filter: blur(12px);
-            border: var(--glass-border); border-top: 4px solid var(--neon-blue);
+            background: var(--glass-panel); 
+            backdrop-filter: blur(12px);
+            border: var(--glass-border); 
+            border-top: 4px solid var(--neon-blue);
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
-            border-radius: 8px; padding: 40px; width: 100%; max-width: 650px;
-            text-align: center; position: relative;
-            transform: perspective(1000px) rotateX(0deg); transition: transform 0.2s;
-            max-height: 90vh; overflow-y: auto;
+            border-radius: 8px; 
+            padding: 40px; 
+            width: 100%; 
+            max-width: 650px;
+            text-align: center; 
+            position: relative;
+            transform: perspective(1000px) rotateX(0deg); 
+            transition: transform 0.2s;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         
         /* --- TYPOGRAPHY --- */
         h1 { 
-            font-size: 4rem; line-height: 1; margin: 0 0 10px 0; 
-            text-transform: uppercase; letter-spacing: 6px;
-            background: linear-gradient(90deg, #fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-size: 4rem; 
+            line-height: 1; 
+            margin: 0 0 10px 0; 
+            text-transform: uppercase; 
+            letter-spacing: 6px;
+            background: linear-gradient(90deg, #fff, #888); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent;
             text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
         }
         
-        h3 { font-family: var(--font-data); color: var(--neon-blue); font-size: 1.2rem; letter-spacing: 2px; margin-bottom: 30px; }
+        h3 { 
+            font-family: var(--font-data); 
+            color: var(--neon-blue); 
+            font-size: 1.2rem; 
+            letter-spacing: 2px; 
+            margin-bottom: 30px; 
+        }
 
         /* --- INTERACTIVE CONTROLS --- */
         .cyber-input, select, textarea {
-            width: 100%; padding: 15px; background: rgba(0,0,0,0.5); 
-            border: 1px solid #333; border-left: 2px solid var(--neon-blue);
-            color: var(--neon-blue); font-family: var(--font-data); font-size: 1.2rem; 
-            text-align: center; margin: 10px 0; transition: 0.3s;
+            width: 100%; 
+            padding: 15px; 
+            background: rgba(0,0,0,0.5); 
+            border: 1px solid #333; 
+            border-left: 2px solid var(--neon-blue);
+            color: var(--neon-blue); 
+            font-family: var(--font-data); 
+            font-size: 1.2rem; 
+            text-align: center; 
+            margin: 15px 0; 
+            transition: 0.3s;
         }
-        textarea { height: 100px; resize: vertical; white-space: pre; text-align: left; }
-        .cyber-input:focus, select:focus, textarea:focus { 
-            outline: none; background: rgba(0, 243, 255, 0.05); box-shadow: 0 0 15px rgba(0, 243, 255, 0.1); 
+        textarea {
+            height: 120px;
+            resize: vertical;
+            white-space: pre;
+            text-align: left;
+        }
+        .cyber-input:focus, textarea:focus, select:focus { 
+            outline: none; 
+            background: rgba(0, 243, 255, 0.05); 
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1); 
         }
 
         .cyber-btn {
-            width: 100%; padding: 18px; background: transparent; 
-            border: 2px solid var(--neon-blue); color: var(--neon-blue);
-            font-family: var(--font-main); font-weight: 700; font-size: 1.4rem; letter-spacing: 2px;
-            cursor: pointer; text-transform: uppercase; position: relative; overflow: hidden;
-            transition: 0.3s; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-            margin-top: 15px;
+            width: 100%; 
+            padding: 18px; 
+            background: transparent; 
+            border: 2px solid var(--neon-blue); 
+            color: var(--neon-blue);
+            font-family: var(--font-main); 
+            font-weight: 700; 
+            font-size: 1.4rem; 
+            letter-spacing: 2px;
+            cursor: pointer; 
+            text-transform: uppercase; 
+            position: relative; 
+            overflow: hidden;
+            transition: 0.3s; 
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
         }
-        .cyber-btn:hover { background: var(--neon-blue); color: black; box-shadow: 0 0 30px var(--neon-blue); }
-        .cyber-btn:active { transform: scale(0.98); }
+        .cyber-btn:hover { 
+            background: var(--neon-blue); 
+            color: black; 
+            box-shadow: 0 0 30px var(--neon-blue); 
+        }
+        .cyber-btn:active { 
+            transform: scale(0.98); 
+        }
         
-        .cyber-btn.secondary { border-color: #444; color: #888; font-size: 1rem; padding: 12px; }
-        .cyber-btn.secondary:hover { border-color: white; color: white; background: transparent; box-shadow: none; }
-
-        /* --- ADMIN TABS --- */
-        .admin-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .tab-btn { 
-            flex: 1; background: transparent; border: none; color: #666; cursor: pointer; 
-            font-family: var(--font-data); font-size: 1rem; padding: 10px; border-bottom: 2px solid transparent;
+        .cyber-btn.secondary { 
+            border-color: #444; 
+            color: #888; 
+            font-size: 1rem; 
+            padding: 12px; 
         }
-        .tab-btn.active-tab { color: var(--neon-blue); border-bottom-color: var(--neon-blue); font-weight: bold; }
-        .tab-content { display: none; text-align: left; }
-        .tab-content.show { display: block; animation: fadeIn 0.3s; }
+        .cyber-btn.secondary:hover { 
+            border-color: white; 
+            color: white; 
+            background: transparent; 
+            box-shadow: none; 
+        }
 
-        /* --- UPLOAD AREA --- */
+        /* --- ADMIN TABS (NEW FEATURE) --- */
+        .admin-panel {
+            border-top: 1px solid #333;
+            padding-top: 15px;
+            margin-top: 20px;
+            display: none; /* Hidden by default */
+            text-align: left;
+        }
+        
+        .admin-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 10px;
+            font-family: var(--font-data);
+            font-size: 1rem;
+            border-bottom: 2px solid transparent;
+            transition: 0.2s;
+        }
+        .tab-btn:hover { color: white; }
+        .tab-btn.active-tab {
+            color: var(--neon-blue);
+            border-bottom-color: var(--neon-blue);
+            font-weight: bold;
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.show { display: block; animation: fadeIn 0.4s; }
+
+        /* --- UPLOAD ZONE STYLES --- */
         .upload-zone {
-            border: 2px dashed #444; padding: 20px; text-align: center; margin-top: 10px;
-            border-radius: 8px; cursor: pointer; transition: 0.3s; color: #888;
+            border: 2px dashed #444;
+            padding: 30px;
+            text-align: center;
+            border-radius: 8px;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            color: #888;
+            font-family: var(--font-data);
         }
-        .upload-zone:hover { border-color: var(--neon-blue); color: white; background: rgba(0,243,255,0.05); }
+        .upload-zone:hover {
+            border-color: var(--neon-blue);
+            background: rgba(0, 243, 255, 0.05);
+            color: white;
+        }
+        
         .preview-box {
-            max-height: 150px; overflow-y: auto; background: #000; border: 1px solid #333; 
-            padding: 10px; margin-top: 10px; font-size: 0.8rem; font-family: var(--font-data); color: var(--neon-green);
+            max-height: 150px;
+            overflow-y: auto;
+            background: #000;
+            border: 1px solid #333;
+            padding: 10px;
+            margin-top: 15px;
+            font-size: 0.8rem;
+            font-family: var(--font-data);
+            color: var(--neon-green);
+            text-align: left;
         }
+        .preview-item { border-bottom: 1px solid #222; padding: 5px 0; }
 
         /* --- AVATAR SELECTOR --- */
-        .avatar-rack { display: flex; justify-content: center; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
-        .av-icon { 
-            font-size: 2.5rem; cursor: pointer; opacity: 0.4; transition: 0.3s; 
-            filter: grayscale(100%); border: 1px solid transparent; padding: 5px; border-radius: 50%;
+        .avatar-rack { 
+            display: flex; 
+            justify-content: center; 
+            gap: 10px; 
+            margin-bottom: 25px; 
+            flex-wrap: wrap; 
         }
-        .av-icon:hover { opacity: 0.8; transform: scale(1.1); }
+        .av-icon { 
+            font-size: 2.2rem; 
+            cursor: pointer; 
+            opacity: 0.4; 
+            transition: 0.3s; 
+            filter: grayscale(100%); 
+            border: 1px solid transparent; 
+            padding: 5px; 
+            border-radius: 50%;
+        }
+        .av-icon:hover { 
+            opacity: 0.8; 
+            transform: scale(1.1); 
+        }
         .av-icon.selected { 
-            opacity: 1; transform: scale(1.2); filter: grayscale(0%); 
-            border-color: var(--neon-blue); box-shadow: 0 0 15px var(--neon-blue); 
+            opacity: 1; 
+            transform: scale(1.2); 
+            filter: grayscale(0%); 
+            border-color: var(--neon-blue); 
+            box-shadow: 0 0 15px var(--neon-blue); 
         }
 
         /* --- ADMIN TOGGLE SWITCH --- */
         .admin-toggle-wrapper {
-            margin-top: 25px; display: flex; align-items: center; justify-content: center; gap: 15px;
-            border-top: 1px solid #222; padding-top: 15px;
+            margin-top: 25px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 15px;
+            border-top: 1px solid #222; 
+            padding-top: 15px;
         }
         .toggle-switch {
-            width: 50px; height: 26px; background: #222; border-radius: 50px; position: relative;
-            cursor: pointer; transition: 0.3s; border: 1px solid #444;
+            width: 50px; 
+            height: 26px; 
+            background: #222; 
+            border-radius: 50px; 
+            position: relative;
+            cursor: pointer; 
+            transition: 0.3s; 
+            border: 1px solid #444;
         }
         .toggle-knob {
-            width: 20px; height: 20px; background: #666; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: 0.3s;
+            width: 20px; 
+            height: 20px; 
+            background: #666; 
+            border-radius: 50%; 
+            position: absolute; 
+            top: 2px; 
+            left: 2px; 
+            transition: 0.3s;
         }
         .admin-active .toggle-switch { background: var(--neon-green); border-color: var(--neon-green); }
         .admin-active .toggle-knob { transform: translateX(24px); background: black; }
@@ -151,47 +331,125 @@
 
         /* --- GAME UI ELEMENTS --- */
         .info-bar {
-            display: flex; justify-content: space-between; align-items: center; 
-            background: #111; padding: 10px 20px; margin-bottom: 20px; 
-            border-radius: 4px; font-family: var(--font-data); color: #888;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: #111; 
+            padding: 10px 20px; 
+            margin-bottom: 20px; 
+            border-radius: 4px; 
+            font-family: var(--font-data); 
+            color: #888;
         }
         .score-display { color: var(--neon-gold); font-weight: bold; }
 
-        .question-display { font-size: 1.8rem; margin-bottom: 25px; font-weight: 600; min-height: 80px; display: flex; align-items: center; justify-content: center; }
-        
-        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
-        .option-card {
-            background: rgba(255,255,255,0.03); border: 1px solid #333; padding: 25px;
-            cursor: pointer; text-align: left; font-size: 1.1rem; transition: 0.2s; position: relative;
+        .question-display { 
+            font-size: 1.8rem; 
+            margin-bottom: 25px; 
+            font-weight: 600; 
+            min-height: 80px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
         }
-        .option-card:hover { border-color: var(--neon-blue); background: rgba(0, 243, 255, 0.1); }
-        .option-card.locked { background: var(--neon-blue); color: black; border-color: white; pointer-events: none; font-weight: bold; }
-        .option-card.dimmed { opacity: 0.3; pointer-events: none; }
+        
+        .options-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 15px; 
+            width: 100%; 
+        }
+        .option-card {
+            background: rgba(255,255,255,0.03); 
+            border: 1px solid #333; 
+            padding: 25px;
+            cursor: pointer; 
+            text-align: left; 
+            font-size: 1.1rem; 
+            transition: 0.2s; 
+            position: relative;
+        }
+        .option-card:hover { 
+            border-color: var(--neon-blue); 
+            background: rgba(0, 243, 255, 0.1); 
+        }
+        .option-card.locked { 
+            background: var(--neon-blue); 
+            color: black; 
+            border-color: white; 
+            pointer-events: none; 
+            font-weight: bold; 
+        }
+        .option-card.dimmed { 
+            opacity: 0.3; 
+            pointer-events: none; 
+        }
 
         /* --- TIMER BAR --- */
-        #timer-container { position: fixed; bottom: 0; left: 0; width: 100%; height: 8px; background: #111; z-index: 100; }
-        #timer-fill { height: 100%; width: 100%; background: var(--neon-pink); box-shadow: 0 0 20px var(--neon-pink); transition-timing-function: linear; }
+        #timer-container { 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 8px; 
+            background: #111; 
+            z-index: 100; 
+        }
+        #timer-fill { 
+            height: 100%; 
+            width: 100%; 
+            background: var(--neon-pink); 
+            box-shadow: 0 0 20px var(--neon-pink); 
+            transition-timing-function: linear; 
+        }
 
         /* --- RESULTS & ROAST --- */
         #roast-box {
-            border: 1px solid var(--neon-pink); background: rgba(255, 0, 85, 0.1); color: #ff8fa3;
-            padding: 15px; font-family: var(--font-data); margin-bottom: 20px; display: none;
+            border: 1px solid var(--neon-pink); 
+            background: rgba(255, 0, 85, 0.1); 
+            color: #ff8fa3;
+            padding: 15px; 
+            font-family: var(--font-data); 
+            margin-bottom: 20px; 
+            display: none;
             animation: glitch-anim 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
         }
         
-        .leaderboard-container { max-height: 350px; overflow-y: auto; text-align: left; }
-        .leader-row { 
-            display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #222; 
-            font-family: var(--font-data); font-size: 1.1rem;
+        .leaderboard-container { 
+            max-height: 350px; 
+            overflow-y: auto; 
+            text-align: left; 
         }
-        .rank-1 { color: var(--neon-gold); font-weight: bold; border-bottom: 1px solid var(--neon-gold); }
+        .leader-row { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 12px; 
+            border-bottom: 1px solid #222; 
+            font-family: var(--font-data); 
+            font-size: 1.1rem;
+        }
+        .rank-1 { 
+            color: var(--neon-gold); 
+            font-weight: bold; 
+            border-bottom: 1px solid var(--neon-gold); 
+        }
 
         /* --- FLOATING ADMIN CONTROLS --- */
         #admin-float {
-            position: fixed; bottom: 20px; right: 20px; z-index: 999;
-            display: none; flex-direction: column; gap: 10px; width: 220px;
-            background: rgba(0,0,0,0.9); padding: 15px; border: 1px solid #444; border-radius: 8px;
+            position: fixed; 
+            bottom: 20px; 
+            right: 20px; 
+            z-index: 999;
+            display: none; 
+            flex-direction: column; 
+            gap: 10px; 
+            width: 220px;
+            background: rgba(0,0,0,0.9); 
+            padding: 15px; 
+            border: 1px solid #444; 
+            border-radius: 8px;
         }
+        .mini-btn { padding: 12px; font-size: 0.9rem; margin: 0; }
 
         /* --- ANIMATIONS --- */
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
@@ -239,6 +497,8 @@
 
             <input type="text" id="inp-name" class="cyber-input" placeholder="ENTER CODENAME">
             
+            <input type="text" id="inp-code" class="cyber-input" placeholder="ROOM CODE (AUTO IF HOST)" style="text-transform:uppercase;">
+
             <button class="cyber-btn" onclick="App.joinGame()">ESTABLISH LINK</button>
 
             <div class="admin-toggle-wrapper" id="admin-toggler" onclick="App.toggleAdmin()">
@@ -254,42 +514,75 @@
             <h1>LOBBY</h1>
             <h3 id="lobby-status">WAITING FOR SIGNAL...</h3>
             
+            <div id="host-info-panel" style="display:none; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid #333;">
+                <div style="font-size:3rem; font-weight:900; color:var(--neon-blue); letter-spacing:10px; margin:10px 0;" id="display-room-code">----</div>
+                <div style="background:white; padding:10px; display:inline-block; border-radius:8px;">
+                    <img id="qr-image" src="" alt="Scan to Join" style="width:150px; height:150px; display:block;">
+                </div>
+                <p style="font-family:var(--font-data); color:#888; margin-top:10px;">SCAN TO JOIN</p>
+            </div>
+
             <div id="lobby-grid" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin: 30px 0;"></div>
 
-            <div id="host-panel" style="display:none; text-align:left; border-top:1px solid #333; margin-top:20px; padding-top:15px;">
+            <div id="host-panel" class="admin-panel">
+                
                 <div class="admin-tabs">
-                    <button class="tab-btn active-tab" onclick="App.switchTab('config', this)">MISSION CONFIG</button>
+                    <button class="tab-btn active-tab" onclick="App.switchTab('config', this)">CONFIG</button>
                     <button class="tab-btn" onclick="App.switchTab('uplink', this)">DATA UPLINK</button>
                 </div>
 
                 <div id="tab-config" class="tab-content show">
-                    <div style="display:flex; gap:10px;">
+                    <h4 style="color: var(--neon-blue); margin: 0 0 15px 0;">MISSION PARAMETERS</h4>
+                    <div style="display:flex; gap:10px; margin-bottom:15px;">
                         <div style="flex:1">
-                            <label style="font-size:0.7rem; color:#666;">QUESTIONS</label>
+                            <label style="font-size:0.7rem; color:#666; font-family:var(--font-data);">QUESTIONS</label>
                             <input type="number" id="cfg-limit" value="10" style="margin:0; padding:10px;">
                         </div>
                         <div style="flex:1">
-                            <label style="font-size:0.7rem; color:#666;">SECONDS/Q</label>
+                            <label style="font-size:0.7rem; color:#666; font-family:var(--font-data);">SECONDS/Q</label>
                             <input type="number" id="cfg-time" value="15" style="margin:0; padding:10px;">
                         </div>
                     </div>
+
+                    <h4 style="color: #666; margin: 15px 0 5px 0;">MANUAL INJECTION</h4>
+                    <input type="text" id="cq-q" class="cyber-input" placeholder="Question Text" style="text-align:left; font-size:1rem; margin:5px 0;">
+                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                        <input id="cq-o1" placeholder="A" style="flex:1; margin:0; padding:10px;">
+                        <input id="cq-o2" placeholder="B" style="flex:1; margin:0; padding:10px;">
+                    </div>
+                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                        <input id="cq-o3" placeholder="C" style="flex:1; margin:0; padding:10px;">
+                        <input id="cq-o4" placeholder="D" style="flex:1; margin:0; padding:10px;">
+                    </div>
+                    <select id="cq-a" style="margin:5px 0; padding:10px;">
+                        <option value="0">Correct: Option A</option>
+                        <option value="1">Correct: Option B</option>
+                        <option value="2">Correct: Option C</option>
+                        <option value="3">Correct: Option D</option>
+                    </select>
+                    <button class="cyber-btn secondary" onclick="App.addCustomQ()">+ ADD TO QUEUE</button>
+                    
+                    <div style="height:1px; background:#333; margin:20px 0;"></div>
                     <button class="cyber-btn" onclick="App.startGame()">▶ INITIATE LAUNCH</button>
                 </div>
 
                 <div id="tab-uplink" class="tab-content">
-                    <p style="font-size:0.8rem; color:#888;">PASTE TEXT OR DRAG PDF</p>
-                    <textarea id="import-text" placeholder="Format:&#10;1. Question?&#10;A. Option&#10;B. Option&#10;Answer: A"></textarea>
+                    <p style="font-family:var(--font-data); color:#888; font-size:0.9rem;">
+                        PASTE RAW TEXT OR UPLOAD PDF FOR ANALYSIS
+                    </p>
+                    
+                    <textarea id="import-text" placeholder="Example Format:&#10;1. What is the Matrix?&#10;A. Food&#10;B. Simulation&#10;Answer: B"></textarea>
                     
                     <div class="upload-zone" onclick="document.getElementById('import-file').click()">
                         <span>📄 CLICK TO UPLOAD PDF</span>
                         <input type="file" id="import-file" accept=".pdf" style="display:none;" onchange="App.handleFileSelect()">
                     </div>
-                    <div id="file-name-display" style="font-size:0.8rem; color:var(--neon-blue); margin-top:5px;"></div>
+                    <div id="file-name-display" style="font-size:0.8rem; color:var(--neon-blue); margin-top:5px; font-family:var(--font-data);"></div>
 
-                    <button class="cyber-btn secondary" onclick="App.parseData()">ANALYZE DATA</button>
+                    <button class="cyber-btn secondary" onclick="App.parseData()" style="border-color:var(--neon-blue); color:var(--neon-blue);">INITIATE PARSING</button>
                     
                     <div id="import-preview" class="preview-box" style="display:none;"></div>
-                    <button id="btn-commit" class="cyber-btn" style="display:none; border-color:var(--neon-green); color:var(--neon-green);" onclick="App.commitImport()">COMMIT TO DATABASE</button>
+                    <button id="btn-commit" class="cyber-btn" style="display:none; border-color:var(--neon-green); color:var(--neon-green);" onclick="App.commitData()">COMMIT TO DATABASE</button>
                 </div>
             </div>
             
@@ -310,19 +603,15 @@
 
             <div class="question-display" id="game-q-text">LOADING DATA STREAM...</div>
             
-            <div class="options-grid" id="game-opts">
-                </div>
+            <div class="options-grid" id="game-opts"></div>
         </div>
     </div>
 
     <div id="view-result" class="view-layer">
         <div class="glass-hud">
             <h1 id="res-title">RESULTS</h1>
-            
             <div id="roast-box"></div>
-            
-            <div class="leaderboard-container" id="res-list">
-                </div>
+            <div class="leaderboard-container" id="res-list"></div>
         </div>
     </div>
 
@@ -437,7 +726,6 @@
                     const y = positions[idx+1];
                     const z = positions[idx+2];
                     
-                    // BEHAVIORS
                     if(this.mode === 'idle') {
                         positions[idx] += Math.sin(this.time + y*0.05) * 0.02;
                     }
@@ -470,6 +758,12 @@
                 AudioSys.els.init.play();
                 AudioSys.playLobby();
                 Visuals.init();
+                
+                // CHECK URL FOR ROOM CODE
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                if(code) document.getElementById('inp-code').value = code;
+
                 this.showView('view-login');
             },
             
@@ -483,33 +777,44 @@
                 State.isAdmin = !State.isAdmin;
                 const wrapper = document.getElementById('admin-toggler');
                 const inp = document.getElementById('inp-name');
+                const codeInp = document.getElementById('inp-code');
                 
                 if(State.isAdmin) {
                     wrapper.classList.add('admin-active');
                     inp.value = "HOST ADMIN";
                     inp.disabled = true;
+                    codeInp.value = "AUTO-GENERATE";
+                    codeInp.disabled = true;
                 } else {
                     wrapper.classList.remove('admin-active');
                     inp.value = "";
                     inp.disabled = false;
+                    codeInp.value = "";
+                    codeInp.disabled = false;
                 }
             },
             
             joinGame() {
                 let name = document.getElementById('inp-name').value;
+                let code = document.getElementById('inp-code').value;
+                
                 if(!name) return alert("IDENTITY REQUIRED");
+                
+                // If not admin, require room code
+                if(!State.isAdmin && !code) return alert("ROOM CODE REQUIRED");
                 
                 State.myName = name;
                 socket.emit('join_game', {
                     name: name,
                     avatar: State.myAvatar,
-                    force_admin: State.isAdmin
+                    force_admin: State.isAdmin,
+                    room_code: code
                 });
             },
-
-            // --- ADMIN TABS & UPLOAD LOGIC ---
+            
+            // --- ADMIN TABS & UPLOAD ---
             switchTab(tabName, btn) {
-                document.querySelectorAll('.admin-view').forEach(v => v.classList.remove('show'));
+                document.querySelectorAll('.tab-content').forEach(v => v.classList.remove('show'));
                 document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active-tab'));
                 document.getElementById('tab-'+tabName).classList.add('show');
                 btn.classList.add('active-tab');
@@ -517,7 +822,7 @@
 
             handleFileSelect() {
                 const f = document.getElementById('import-file').files[0];
-                if(f) document.getElementById('file-name-display').innerText = "FILE LOCKED: " + f.name;
+                if(f) document.getElementById('file-name-display').innerText = "LOCKED: " + f.name;
             },
 
             async parseData() {
@@ -525,7 +830,7 @@
                 const file = document.getElementById('import-file').files[0];
                 const text = document.getElementById('import-text').value;
 
-                if(!file && !text) return alert("INPUT DATA MISSING");
+                if(!file && !text) return alert("NO INPUT DETECTED");
                 
                 if(file) fd.append('file', file);
                 fd.append('raw_text', text);
@@ -538,21 +843,31 @@
                         State.importedQs = d.questions;
                         const prev = document.getElementById('import-preview');
                         prev.style.display = 'block';
-                        prev.innerHTML = d.questions.slice(0,3).map((q,i) => 
-                            `<div class="preview-item"><b>${i+1}. ${q.q}</b><br>Ans: ${q.a}</div>`
-                        ).join('') + (d.questions.length > 3 ? `...and ${d.questions.length-3} more` : '');
-                        
-                        document.getElementById('btn-commit').style.display = 'inline-block';
-                        alert(`PARSED ${d.questions.length} ENTRIES`);
+                        prev.innerHTML = `PARSED ${d.questions.length} QUESTIONS:<br>` + d.questions.slice(0,3).map(q=>`• ${q.q}`).join('<br>') + '...';
+                        document.getElementById('btn-commit').style.display='inline-block';
                     } else alert("DATA CORRUPTION OR EMPTY");
                 } catch(e) { console.error(e); alert("UPLINK FAILED"); }
             },
 
-            commitImport() {
+            commitData() {
                 socket.emit('admin_bulk_import', {questions: State.importedQs});
                 document.getElementById('import-preview').style.display='none';
                 document.getElementById('btn-commit').style.display='none';
                 document.getElementById('import-text').value = '';
+                State.importedQs = [];
+            },
+
+            addCustomQ() {
+                socket.emit('add_custom_question', {
+                    q: document.getElementById('cq-q').value,
+                    o1: document.getElementById('cq-o1').value, 
+                    o2: document.getElementById('cq-o2').value,
+                    o3: document.getElementById('cq-o3').value, 
+                    o4: document.getElementById('cq-o4').value,
+                    correct: document.getElementById('cq-a').value
+                });
+                alert("DATA INJECTED");
+                document.getElementById('cq-q').value = "";
             },
             
             startGame() {
@@ -563,7 +878,9 @@
             },
             
             submitAnswer(idx, el) {
-                document.querySelectorAll('.option-card').forEach(c => c.classList.add('dimmed'));
+                document.querySelectorAll('.option-card').forEach(c => {
+                    c.classList.add('dimmed');
+                });
                 el.classList.remove('dimmed');
                 el.classList.add('locked');
                 
@@ -571,7 +888,10 @@
                 const timeSet = parseInt(document.getElementById('cfg-time').value) || 15;
                 const timeLeft = (bar.offsetWidth / window.innerWidth) * timeSet;
                 
-                socket.emit('submit_answer', { answer_index: idx, time_left: timeLeft });
+                socket.emit('submit_answer', {
+                    answer_index: idx,
+                    time_left: timeLeft
+                });
             },
             
             showView(id) {
@@ -581,6 +901,7 @@
         };
 
         // --- 5. SOCKET HANDLERS ---
+        
         socket.on('join_success', (data) => {
             State.isAdmin = data.is_admin;
             App.showView('view-lobby');
@@ -588,11 +909,18 @@
             
             if(State.isAdmin) {
                 document.getElementById('host-panel').style.display = 'block';
+                document.getElementById('host-info-panel').style.display = 'block';
                 document.getElementById('lobby-wait-msg').style.display = 'none';
                 document.getElementById('lobby-status').innerText = "HOST CONTROLS ACTIVE";
                 document.getElementById('lobby-status').style.color = "var(--neon-green)";
+                
+                // Show Room Code & QR
+                document.getElementById('display-room-code').innerText = data.room_code;
+                document.getElementById('qr-image').src = `/qrcode?ts=${Date.now()}`;
             }
         });
+
+        socket.on('error_msg', (d) => { alert(d.msg); });
 
         socket.on('update_lobby', (data) => {
             const grid = document.getElementById('lobby-grid');
@@ -630,9 +958,11 @@
 
             // Start Timer
             const bar = document.getElementById('timer-fill');
-            bar.style.transition = 'none'; bar.style.width = '100%';
+            bar.style.transition = 'none';
+            bar.style.width = '100%';
             void bar.offsetWidth;
-            bar.style.transition = `width ${data.time}s linear`; bar.style.width = '0%';
+            bar.style.transition = `width ${data.time}s linear`;
+            bar.style.width = '0%';
             
             if(State.isAdmin) document.getElementById('admin-float').style.display = 'flex';
         });
@@ -659,22 +989,30 @@
                 void rBox.offsetWidth;
                 rBox.style.animation = 'glitch-anim 0.3s infinite';
                 setTimeout(()=> rBox.style.animation = 'none', 1000);
-            } else rBox.style.display = 'none';
+            } else {
+                rBox.style.display = 'none';
+            }
 
             const list = document.getElementById('res-list');
             list.innerHTML = '';
+            
             data.leaderboard.forEach((p, i) => {
                 const isTop = i === 0;
                 const row = document.createElement('div');
                 row.className = 'leader-row' + (isTop ? ' rank-1' : '');
-                row.innerHTML = `<span>#${i+1} ${p[2]} ${p[0]}</span><span>${p[1]}</span>`;
+                row.innerHTML = `
+                    <span>#${i+1} ${p[2]} ${p[0]}</span>
+                    <span>${p[1]}</span>
+                `;
                 list.appendChild(row);
             });
 
             if(State.isAdmin) document.getElementById('admin-float').style.display = 'flex';
+            
             confetti({ particleCount: 200, spread: 80, origin: { y: 0.6 } });
         }
 
+        // --- WINDOW RESIZE ---
         window.addEventListener('resize', () => {
             if(Visuals.renderer) {
                 Visuals.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -682,6 +1020,7 @@
                 Visuals.camera.updateProjectionMatrix();
             }
         });
+
     </script>
 </body>
 </html>
