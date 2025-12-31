@@ -2,212 +2,244 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>QuizWiz - Netflix Edition</title>
+    <title>QuizWiz Ultimate</title>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root { --netflix-red: #e50914; --bg-black: #141414; }
-        body { margin: 0; overflow: hidden; background: var(--bg-black); color: white; font-family: 'Helvetica Neue', sans-serif; }
-        
+        :root { --main-color: #e50914; --bg-color: #141414; }
+        body { margin: 0; overflow: hidden; background: var(--bg-color); color: white; font-family: 'Helvetica Neue', sans-serif; transition: background 1s; }
         #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; }
         
-        .page { display: none; height: 100vh; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; position: absolute; top: 0; transition: opacity 0.5s; }
+        .page { display: none; height: 100vh; flex-direction: column; justify-content: center; align-items: center; text-align: center; width: 100%; position: absolute; top: 0; }
         .active { display: flex !important; animation: fadeIn 0.8s; }
         
-        .glass-card { background: rgba(0,0,0,0.85); padding: 40px; border-radius: 10px; border-top: 4px solid var(--netflix-red); width: 400px; backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .glass-card { background: rgba(0,0,0,0.85); padding: 40px; border-radius: 10px; border-top: 4px solid var(--main-color); width: 400px; backdrop-filter: blur(10px); }
         
-        h1 { font-size: 3rem; margin-bottom: 20px; text-shadow: 2px 2px 10px black; }
-        input { width: 90%; padding: 15px; margin: 10px 0; background: #333; border: 1px solid #555; color: white; border-radius: 4px; font-size: 1.1rem; }
-        button { width: 100%; padding: 15px; background: var(--netflix-red); color: white; border: none; font-weight: bold; font-size: 1.2rem; cursor: pointer; margin-top: 10px; border-radius: 4px; }
-        button:hover { transform: scale(1.02); background: #f40612; }
+        h1 { font-size: 3rem; text-shadow: 2px 2px 10px black; }
+        input, select { width: 90%; padding: 15px; margin: 10px 0; background: #333; border: 1px solid #555; color: white; border-radius: 4px; font-size: 1.1rem; }
+        button { width: 100%; padding: 15px; background: var(--main-color); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 4px; }
+        button:hover { filter: brightness(1.2); }
         
-        /* Lobby Styles */
-        #lobby-list { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; margin-top: 30px; max-width: 800px; }
-        .player-chip { background: #333; padding: 10px 20px; border-radius: 50px; border: 1px solid #555; animation: popIn 0.4s; display: flex; align-items: center; gap: 10px; }
-        .avatar { width: 30px; height: 30px; background: var(--netflix-red); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-
-        /* Game Styles */
-        .question-box { font-size: 2rem; margin-bottom: 30px; max-width: 800px; line-height: 1.4; }
+        /* Game UI */
+        .question-box { font-size: 2rem; margin-bottom: 20px; max-width: 800px; }
         .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 800px; }
-        .option-btn { background: #333; padding: 20px; border-radius: 8px; font-size: 1.2rem; text-align: left; transition: 0.2s; border: 2px solid transparent; }
-        .option-btn:hover { background: #444; border-color: #666; }
-        .option-btn.selected { background: #555; border-color: white; }
+        .option-btn { background: #333; padding: 20px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .option-btn:hover { background: #444; }
         
         #timer-bar { width: 100%; height: 10px; background: #333; position: fixed; top: 0; left: 0; }
-        #timer-fill { width: 100%; height: 100%; background: var(--netflix-red); transition: width 1s linear; }
+        #timer-fill { width: 100%; height: 100%; background: var(--main-color); }
+        
+        /* Chips */
+        #lobby-list { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 20px; max-width: 600px; }
+        .player-chip { background: #222; padding: 8px 15px; border-radius: 20px; border: 1px solid #444; }
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
     </style>
 </head>
 <body>
     <canvas id="bg-canvas"></canvas>
-
-    <audio id="bgm-lobby" loop><source src="/static/audio/lobby.mp3"></audio>
+    
+    <audio id="bgm" loop><source src="/static/audio/lobby.mp3"></audio>
     <audio id="sfx-join"><source src="/static/audio/tadum.mp3"></audio>
 
     <div id="p-login" class="page active">
         <h1>QUIZWIZ</h1>
         <div class="glass-card">
             <input type="text" id="username" placeholder="Enter Name">
-            <button onclick="joinGame()">JOIN GAME</button>
-            <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">Host? Enter name as 'Admin'</p>
+            <button onclick="joinGame()">ENTER</button>
+            <p style="color:#666; font-size:0.8rem; margin-top:10px;">Login as 'Admin' to host</p>
         </div>
     </div>
 
     <div id="p-lobby" class="page">
-        <h1>THE LOBBY</h1>
-        <h3 id="player-count">0 Players Ready</h3>
-        <div id="lobby-list"></div>
-        <div id="admin-controls" style="display: none; margin-top: 40px;">
-            <button onclick="startGame()" style="width: 200px;">START GAME ▶</button>
+        <h1>LOBBY</h1>
+        <div id="admin-controls" style="display:none; margin-bottom: 20px;">
+            <label>Select Theme:</label>
+            <select id="category-select" onchange="changeCategory()">
+                </select>
+            <button onclick="startGame()">START GAME ▶</button>
         </div>
-        <p id="waiting-msg">Waiting for host to start...</p>
+        <h3 id="player-count">Waiting for players...</h3>
+        <div id="lobby-list"></div>
+        <p id="wait-msg">Host is choosing the vibe...</p>
     </div>
 
     <div id="p-game" class="page">
         <div id="timer-bar"><div id="timer-fill"></div></div>
-        <h2 style="color: #999; margin-bottom: 10px;">QUESTION <span id="q-num">1</span></h2>
+        <div style="display:flex; justify-content:space-between; width: 800px; margin-bottom: 10px; color:#aaa;">
+            <span id="q-points">1000 Pts</span>
+            <span id="q-num">1/10</span>
+        </div>
         <div class="question-box" id="q-text">Loading...</div>
         <div class="options-grid" id="options-container"></div>
-        
-        <div id="admin-next-btn" style="display:none; margin-top: 30px;">
-            <button onclick="nextQuestion()" style="width: 200px;">NEXT QUESTION ⏩</button>
+        <div id="admin-next" style="display:none; margin-top:30px;">
+            <button onclick="nextQ()" style="width:200px;">NEXT ⏩</button>
         </div>
     </div>
 
     <div id="p-result" class="page">
-        <h1>LEADERBOARD</h1>
-        <div id="final-scores" style="max-width: 600px; width: 100%;"></div>
+        <h1>FINAL SCORES</h1>
+        <div id="leaderboard-box"></div>
     </div>
 
     <script>
         const socket = io();
         let isAdmin = false;
-        let timerInterval;
 
-        // --- ACTIONS ---
+        // --- GAMEPLAY FUNCTIONS ---
         function joinGame() {
             const name = document.getElementById('username').value;
-            if(!name) return alert("Enter a name!");
-            
-            playSound('sfx-join');
-            playMusic('bgm-lobby');
+            if(!name) return alert("Name required!");
+            document.getElementById('sfx-join').play().catch(()=>{});
+            document.getElementById('bgm').play().catch(()=>{});
             socket.emit('join_game', { name: name });
         }
-
-        function startGame() {
-            socket.emit('start_game');
+        function changeCategory() {
+            const cat = document.getElementById('category-select').value;
+            socket.emit('select_category', { category: cat });
         }
-
-        function nextQuestion() {
-            socket.emit('admin_next_question');
-        }
-
-        function submitAnswer(index) {
-            // Visual feedback
+        function startGame() { socket.emit('start_game'); }
+        function nextQ() { socket.emit('admin_next_question'); }
+        
+        function submitAnswer(idx) {
             const btns = document.querySelectorAll('.option-btn');
-            btns.forEach(b => b.style.opacity = '0.5'); // Dim others
-            btns[index].style.opacity = '1';
-            btns[index].style.borderColor = 'var(--netflix-red)';
+            btns.forEach(b => b.style.opacity = 0.5);
+            btns[idx].style.opacity = 1;
+            btns[idx].style.border = "2px solid white";
             
-            // Calculate time left (rough estimate for demo)
-            const timeLeft = parseFloat(document.getElementById('timer-fill').style.width) || 10;
-            socket.emit('submit_answer', { answer_index: index, time_left: timeLeft });
+            // Get width of timer bar to calculate time left
+            const barWidth = document.getElementById('timer-fill').offsetWidth;
+            const totalWidth = document.getElementById('timer-bar').offsetWidth;
+            const timeLeft = (barWidth / totalWidth) * 10; // Approx
+            
+            socket.emit('submit_answer', { answer_index: idx, time_left: timeLeft });
         }
 
-        // --- EVENTS ---
+        // --- SOCKET EVENTS ---
         socket.on('join_success', (data) => {
             isAdmin = data.is_admin;
             switchPage('p-lobby');
             if(isAdmin) {
                 document.getElementById('admin-controls').style.display = 'block';
-                document.getElementById('waiting-msg').style.display = 'none';
+                document.getElementById('wait-msg').style.display = 'none';
             }
+        });
+
+        socket.on('admin_init', (data) => {
+            const sel = document.getElementById('category-select');
+            sel.innerHTML = "";
+            data.categories.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.innerText = c.toUpperCase();
+                sel.appendChild(opt);
+            });
+        });
+
+        socket.on('theme_change', (data) => {
+            update3DTheme(data.theme);
         });
 
         socket.on('update_lobby', (data) => {
             const list = document.getElementById('lobby-list');
-            document.getElementById('player-count').innerText = `${data.players.length} Players Ready`;
             list.innerHTML = '';
+            document.getElementById('player-count').innerText = `${data.players.length} Players`;
             data.players.forEach(p => {
-                const chip = document.createElement('div');
-                chip.className = 'player-chip';
-                chip.innerHTML = `<div class="avatar">${p[0].charAt(0)}</div> ${p[0]}`;
-                list.appendChild(chip);
+                list.innerHTML += `<div class="player-chip">${p[0]}</div>`;
             });
-        });
-
-        socket.on('game_started', () => {
-            // Transition effect
         });
 
         socket.on('new_question', (data) => {
             switchPage('p-game');
-            document.getElementById('q-num').innerText = `${data.current}/${data.total}`;
             document.getElementById('q-text').innerText = data.q;
+            document.getElementById('q-num').innerText = `${data.current}/${data.total}`;
+            document.getElementById('q-points').innerText = `${data.points} POINTS`;
             
             const cont = document.getElementById('options-container');
             cont.innerHTML = '';
-            data.options.forEach((opt, idx) => {
-                const btn = document.createElement('button');
-                btn.className = 'option-btn';
-                btn.innerText = opt;
-                btn.onclick = () => submitAnswer(idx);
-                cont.appendChild(btn);
+            data.options.forEach((opt, i) => {
+                cont.innerHTML += `<div class="option-btn" onclick="submitAnswer(${i})">${opt}</div>`;
             });
+            
+            if(isAdmin) document.getElementById('admin-next').style.display = 'block';
 
-            // Admin Logic
-            if(isAdmin) document.getElementById('admin-next-btn').style.display = 'block';
-
-            // Start Timer Animation (15 seconds)
+            // Timer Animation
             const fill = document.getElementById('timer-fill');
+            fill.style.transition = 'none';
             fill.style.width = '100%';
-            setTimeout(() => fill.style.width = '0%', 100);
+            setTimeout(() => {
+                fill.style.transition = `width ${data.time}s linear`;
+                fill.style.width = '0%';
+            }, 100);
         });
-
+        
         socket.on('game_over', (data) => {
             switchPage('p-result');
-            const box = document.getElementById('final-scores');
+            const box = document.getElementById('leaderboard-box');
             box.innerHTML = '';
             data.leaderboard.forEach((p, i) => {
-                const row = document.createElement('div');
-                row.style.cssText = "background: #333; padding: 15px; margin: 10px 0; display: flex; justify-content: space-between; border-radius: 8px;";
-                row.innerHTML = `<span>#${i+1} ${p[0]}</span> <span style="color:var(--netflix-red); font-weight:bold;">${p[1]} pts</span>`;
-                box.appendChild(row);
+                box.innerHTML += `<div style="background:#333; padding:15px; margin:5px; border-radius:5px; display:flex; justify-content:space-between;"><span>#${i+1} ${p[0]}</span><b>${p[1]}</b></div>`;
             });
         });
 
-        // --- UTILS ---
         function switchPage(id) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
         }
-        function playSound(id) { document.getElementById(id).play().catch(e=>{}); }
-        function playMusic(id) { 
-            const a = document.getElementById(id); 
-            a.volume=0.3; a.play().catch(e=>{}); 
-        }
 
-        // --- 3D BACKGROUND ---
+        // --- 3D VISUALS ENGINE ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({canvas: document.getElementById('bg-canvas'), alpha: true});
         renderer.setSize(window.innerWidth, window.innerHeight);
         camera.position.z = 5;
+
+        let particles;
         
-        const geo = new THREE.BufferGeometry();
-        const pos = [];
-        for(let i=0; i<1500; i++) pos.push((Math.random()-0.5)*15);
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-        const mat = new THREE.PointsMaterial({color: 0xe50914, size: 0.05, transparent: true, opacity: 0.8});
-        const mesh = new THREE.Points(geo, mat);
-        scene.add(mesh);
-        
+        function createParticles(color, type) {
+            if(particles) scene.remove(particles);
+            
+            const geo = new THREE.BufferGeometry();
+            const pos = [];
+            const count = 1500;
+            
+            for(let i=0; i<count*3; i++) {
+                pos.push((Math.random()-0.5)*15);
+            }
+            
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({color: color, size: type === 'square' ? 0.08 : 0.05, transparent: true});
+            particles = new THREE.Points(geo, mat);
+            scene.add(particles);
+        }
+
+        // Initial Theme
+        createParticles(0xe50914, 'dot'); // Netflix Red
+
+        function update3DTheme(theme) {
+            const root = document.documentElement;
+            if(theme === 'kenya') {
+                root.style.setProperty('--main-color', '#009900'); // Green
+                root.style.setProperty('--bg-color', '#000000');
+                createParticles(0xffffff, 'dot'); // White stars
+            } else if(theme === 'romance') {
+                root.style.setProperty('--main-color', '#ff69b4'); // Hot Pink
+                createParticles(0xff69b4, 'dot'); 
+            } else if(theme === 'math') {
+                root.style.setProperty('--main-color', '#00a8e1'); // Tech Blue
+                createParticles(0x00a8e1, 'square'); // Squares for tech
+            } else {
+                root.style.setProperty('--main-color', '#e50914'); // Netflix Red
+                createParticles(0xe50914, 'dot');
+            }
+        }
+
         function animate() {
             requestAnimationFrame(animate);
-            mesh.rotation.y += 0.002;
-            mesh.rotation.x += 0.001;
+            if(particles) {
+                particles.rotation.y += 0.002;
+                particles.rotation.x += 0.001;
+            }
             renderer.render(scene, camera);
         }
         animate();
