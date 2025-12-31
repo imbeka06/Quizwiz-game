@@ -2,316 +2,686 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuizWiz Ultimate</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>META || TRIVIA OS</title>
+    
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
     <style>
-        :root { --netflix-red: #e50914; --bg-black: #141414; --neon-blue: #00f3ff; }
-        
-        body { margin: 0; background: var(--bg-black); color: white; font-family: 'Helvetica Neue', sans-serif; overflow: hidden; }
-        #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; width: 100vw; height: 100vh; }
-        
-        .page { 
-            display: none; height: 100vh; width: 100%; overflow-y: auto; 
-            flex-direction: column; align-items: center; padding-top: 50px; position: absolute; top: 0;
+        /* --- CORE VARIABLES --- */
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff0055;
+            --neon-gold: #ffd700;
+            --neon-green: #00ff41;
+            --bg-deep: #050505;
+            --glass-panel: rgba(15, 15, 15, 0.95);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.15);
+            --font-main: 'Rajdhani', sans-serif;
+            --font-data: 'Share Tech Mono', monospace;
         }
-        .active { display: flex !important; animation: fadeIn 0.5s; }
+
+        /* --- GLOBAL RESET --- */
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         
-        .glass-card { 
-            background: rgba(0,0,0,0.9); padding: 25px; border-radius: 10px; 
-            border-top: 4px solid var(--netflix-red); width: 90%; max-width: 500px; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin-bottom: 20px;
+        body { 
+            margin: 0; padding: 0; background-color: var(--bg-deep); 
+            color: white; font-family: var(--font-main); 
+            overflow: hidden; height: 100vh; width: 100vw;
+        }
+
+        /* --- BACKGROUND LAYER --- */
+        #visual-engine { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; }
+        
+        /* Scanline Overlay for Retro feel */
+        #scanlines {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%; opacity: 0.3;
+        }
+
+        /* --- PAGE MANAGEMENT --- */
+        .view-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            padding: 20px; z-index: 10;
+        }
+        .view-layer.active { display: flex; opacity: 1; }
+
+        /* --- GLASS CARDS (The main container) --- */
+        .glass-hud {
+            background: var(--glass-panel); backdrop-filter: blur(12px);
+            border: var(--glass-border); border-top: 4px solid var(--neon-blue);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+            border-radius: 8px; padding: 40px; width: 100%; max-width: 650px;
+            text-align: center; position: relative;
+            transform: perspective(1000px) rotateX(0deg); transition: transform 0.2s;
+            max-height: 90vh; overflow-y: auto;
         }
         
-        h1 { font-size: 2.5rem; margin: 0 0 20px 0; text-shadow: 0 0 20px rgba(229,9,20,0.6); text-align: center; }
-        input, select { width: 100%; padding: 12px; margin: 5px 0; background: #333; border: 1px solid #444; color: white; border-radius: 4px; box-sizing: border-box; }
+        /* --- TYPOGRAPHY --- */
+        h1 { 
+            font-size: 4rem; line-height: 1; margin: 0 0 10px 0; 
+            text-transform: uppercase; letter-spacing: 6px;
+            background: linear-gradient(90deg, #fff, #888); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+        }
         
-        button { width: 100%; padding: 15px; background: var(--netflix-red); color: white; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 15px; border-radius: 4px; }
-        button:hover { transform: scale(1.02); }
-        button.secondary { background: #333; border: 1px solid #555; }
+        h3 { font-family: var(--font-data); color: var(--neon-blue); font-size: 1.2rem; letter-spacing: 2px; margin-bottom: 30px; }
+
+        /* --- INTERACTIVE CONTROLS --- */
+        .cyber-input, select, textarea {
+            width: 100%; padding: 15px; background: rgba(0,0,0,0.5); 
+            border: 1px solid #333; border-left: 2px solid var(--neon-blue);
+            color: var(--neon-blue); font-family: var(--font-data); font-size: 1.2rem; 
+            text-align: center; margin: 10px 0; transition: 0.3s;
+        }
+        textarea { height: 100px; resize: vertical; white-space: pre; text-align: left; }
+        .cyber-input:focus, select:focus, textarea:focus { 
+            outline: none; background: rgba(0, 243, 255, 0.05); box-shadow: 0 0 15px rgba(0, 243, 255, 0.1); 
+        }
+
+        .cyber-btn {
+            width: 100%; padding: 18px; background: transparent; 
+            border: 2px solid var(--neon-blue); color: var(--neon-blue);
+            font-family: var(--font-main); font-weight: 700; font-size: 1.4rem; letter-spacing: 2px;
+            cursor: pointer; text-transform: uppercase; position: relative; overflow: hidden;
+            transition: 0.3s; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+            margin-top: 15px;
+        }
+        .cyber-btn:hover { background: var(--neon-blue); color: black; box-shadow: 0 0 30px var(--neon-blue); }
+        .cyber-btn:active { transform: scale(0.98); }
         
-        /* GAME UI */
-        .question-box { font-size: 1.8rem; margin-bottom: 20px; width: 90%; max-width: 800px; text-align: center; font-weight: bold; }
-        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; max-width: 800px; }
-        .option-btn { background: linear-gradient(145deg, #2a2a2a, #333); padding: 20px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; border: 2px solid transparent; text-align: center; }
+        .cyber-btn.secondary { border-color: #444; color: #888; font-size: 1rem; padding: 12px; }
+        .cyber-btn.secondary:hover { border-color: white; color: white; background: transparent; box-shadow: none; }
+
+        /* --- ADMIN TABS --- */
+        .admin-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .tab-btn { 
+            flex: 1; background: transparent; border: none; color: #666; cursor: pointer; 
+            font-family: var(--font-data); font-size: 1rem; padding: 10px; border-bottom: 2px solid transparent;
+        }
+        .tab-btn.active-tab { color: var(--neon-blue); border-bottom-color: var(--neon-blue); font-weight: bold; }
+        .tab-content { display: none; text-align: left; }
+        .tab-content.show { display: block; animation: fadeIn 0.3s; }
+
+        /* --- UPLOAD AREA --- */
+        .upload-zone {
+            border: 2px dashed #444; padding: 20px; text-align: center; margin-top: 10px;
+            border-radius: 8px; cursor: pointer; transition: 0.3s; color: #888;
+        }
+        .upload-zone:hover { border-color: var(--neon-blue); color: white; background: rgba(0,243,255,0.05); }
+        .preview-box {
+            max-height: 150px; overflow-y: auto; background: #000; border: 1px solid #333; 
+            padding: 10px; margin-top: 10px; font-size: 0.8rem; font-family: var(--font-data); color: var(--neon-green);
+        }
+
+        /* --- AVATAR SELECTOR --- */
+        .avatar-rack { display: flex; justify-content: center; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
+        .av-icon { 
+            font-size: 2.5rem; cursor: pointer; opacity: 0.4; transition: 0.3s; 
+            filter: grayscale(100%); border: 1px solid transparent; padding: 5px; border-radius: 50%;
+        }
+        .av-icon:hover { opacity: 0.8; transform: scale(1.1); }
+        .av-icon.selected { 
+            opacity: 1; transform: scale(1.2); filter: grayscale(0%); 
+            border-color: var(--neon-blue); box-shadow: 0 0 15px var(--neon-blue); 
+        }
+
+        /* --- ADMIN TOGGLE SWITCH --- */
+        .admin-toggle-wrapper {
+            margin-top: 25px; display: flex; align-items: center; justify-content: center; gap: 15px;
+            border-top: 1px solid #222; padding-top: 15px;
+        }
+        .toggle-switch {
+            width: 50px; height: 26px; background: #222; border-radius: 50px; position: relative;
+            cursor: pointer; transition: 0.3s; border: 1px solid #444;
+        }
+        .toggle-knob {
+            width: 20px; height: 20px; background: #666; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: 0.3s;
+        }
+        .admin-active .toggle-switch { background: var(--neon-green); border-color: var(--neon-green); }
+        .admin-active .toggle-knob { transform: translateX(24px); background: black; }
+        .admin-active span { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
+
+        /* --- GAME UI ELEMENTS --- */
+        .info-bar {
+            display: flex; justify-content: space-between; align-items: center; 
+            background: #111; padding: 10px 20px; margin-bottom: 20px; 
+            border-radius: 4px; font-family: var(--font-data); color: #888;
+        }
+        .score-display { color: var(--neon-gold); font-weight: bold; }
+
+        .question-display { font-size: 1.8rem; margin-bottom: 25px; font-weight: 600; min-height: 80px; display: flex; align-items: center; justify-content: center; }
         
-        #timer-bar { width: 100%; height: 8px; background: #222; position: fixed; top: 0; left: 0; z-index: 100; }
-        #timer-fill { width: 100%; height: 100%; background: var(--netflix-red); }
-        
-        /* ROAST OVERLAY */
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+        .option-card {
+            background: rgba(255,255,255,0.03); border: 1px solid #333; padding: 25px;
+            cursor: pointer; text-align: left; font-size: 1.1rem; transition: 0.2s; position: relative;
+        }
+        .option-card:hover { border-color: var(--neon-blue); background: rgba(0, 243, 255, 0.1); }
+        .option-card.locked { background: var(--neon-blue); color: black; border-color: white; pointer-events: none; font-weight: bold; }
+        .option-card.dimmed { opacity: 0.3; pointer-events: none; }
+
+        /* --- TIMER BAR --- */
+        #timer-container { position: fixed; bottom: 0; left: 0; width: 100%; height: 8px; background: #111; z-index: 100; }
+        #timer-fill { height: 100%; width: 100%; background: var(--neon-pink); box-shadow: 0 0 20px var(--neon-pink); transition-timing-function: linear; }
+
+        /* --- RESULTS & ROAST --- */
         #roast-box {
-            background: rgba(255, 0, 0, 0.8); color: white; padding: 20px; border-radius: 10px;
-            font-size: 1.5rem; font-weight: bold; text-align: center; margin-bottom: 20px;
-            display: none; border: 2px solid white; box-shadow: 0 0 20px red;
-            animation: popIn 0.5s;
+            border: 1px solid var(--neon-pink); background: rgba(255, 0, 85, 0.1); color: #ff8fa3;
+            padding: 15px; font-family: var(--font-data); margin-bottom: 20px; display: none;
+            animation: glitch-anim 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+        }
+        
+        .leaderboard-container { max-height: 350px; overflow-y: auto; text-align: left; }
+        .leader-row { 
+            display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #222; 
+            font-family: var(--font-data); font-size: 1.1rem;
+        }
+        .rank-1 { color: var(--neon-gold); font-weight: bold; border-bottom: 1px solid var(--neon-gold); }
+
+        /* --- FLOATING ADMIN CONTROLS --- */
+        #admin-float {
+            position: fixed; bottom: 20px; right: 20px; z-index: 999;
+            display: none; flex-direction: column; gap: 10px; width: 220px;
+            background: rgba(0,0,0,0.9); padding: 15px; border: 1px solid #444; border-radius: 8px;
         }
 
-        /* ADMIN CONTROL BAR (FIXED BOTTOM) */
-        #admin-actions {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            display: none; gap: 10px; z-index: 999;
-        }
-        #admin-actions button { width: auto; padding: 15px 30px; margin: 0; box-shadow: 0 0 10px black; }
+        /* --- ANIMATIONS --- */
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes glitch-anim { 0% { transform: translate(0) } 20% { transform: translate(-2px, 2px) } 40% { transform: translate(-2px, -2px) } 60% { transform: translate(2px, 2px) } 80% { transform: translate(2px, -2px) } 100% { transform: translate(0) } }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+        /* --- RESPONSIVE QUERIES --- */
+        @media (max-width: 768px) {
+            h1 { font-size: 3rem; }
+            .glass-hud { padding: 25px; width: 95%; margin: 0 auto; }
+            .options-grid { grid-template-columns: 1fr; }
+            #admin-float { left: 10px; right: 10px; width: auto; bottom: 10px; flex-direction: row; }
+            .mini-btn { flex: 1; }
+        }
     </style>
 </head>
 <body>
-    <canvas id="bg-canvas"></canvas>
-    
-    <audio id="sfx-join"><source src="/static/audio/tadum.mp3"></audio>
-    <audio id="bgm-results"><source src="/static/audio/results.mp3"></audio> <div id="loading-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:999; display:none; flex-direction:column; justify-content:center; align-items:center;">
-        <h1 style="font-size:4rem; color:var(--netflix-red);">GET READY</h1>
+
+    <canvas id="visual-engine"></canvas>
+    <div id="scanlines"></div>
+
+    <audio id="sfx-init"> <source src="/static/audio/tadum.mp3"> </audio>
+    <audio id="bgm-lobby" loop> <source src="/static/audio/login.mp3"> </audio>
+    <audio id="bgm-results"> <source src="/static/audio/results.mp3"> </audio>
+    <audio id="bgm-game" loop></audio> 
+
+    <div id="view-splash" class="view-layer active" onclick="App.initSystem()">
+        <h1 style="font-size: 15vw; color: #222; text-shadow: -1px -1px 0 var(--neon-blue), 1px 1px 0 var(--neon-pink);">SYSTEM<br>OFFLINE</h1>
+        <p style="font-family: var(--font-data); color: var(--neon-blue); margin-top: 20px; animation: pulse 1s infinite;">
+            [ TOUCH TERMINAL TO INITIALIZE ]
+        </p>
     </div>
 
-    <div id="p-login" class="page active" style="justify-content: center;">
+    <div id="view-login" class="view-layer">
         <h1>QUIZWIZ</h1>
-        <div class="glass-card">
-            <input type="text" id="username" placeholder="Enter Name">
-            <button onclick="joinGame()">JOIN GAME</button>
-            <p style="color:#666; font-size:0.8rem; margin-top:15px; text-align:center;">Host? Enter name as 'Admin'</p>
-        </div>
-    </div>
+        <div class="glass-hud">
+            <h3>SELECT AVATAR</h3>
+            <div class="avatar-rack">
+                <div class="av-icon selected" onclick="App.selectAvatar('💀', this)">💀</div>
+                <div class="av-icon" onclick="App.selectAvatar('👽', this)">👽</div>
+                <div class="av-icon" onclick="App.selectAvatar('🤖', this)">🤖</div>
+                <div class="av-icon" onclick="App.selectAvatar('🦁', this)">🦁</div>
+                <div class="av-icon" onclick="App.selectAvatar('🦊', this)">🦊</div>
+            </div>
 
-    <div id="p-lobby" class="page">
-        <h1>LOBBY</h1>
-        <h3 id="player-count" style="color:#999;">Waiting...</h3>
-        <div id="lobby-list" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; width:90%; margin-bottom:20px;"></div>
-        
-        <div id="admin-controls" class="glass-card" style="display:none; max-width: 600px;">
-            <h3>HOST CONTROLS</h3>
+            <input type="text" id="inp-name" class="cyber-input" placeholder="ENTER CODENAME">
             
-            <div style="background:#222; padding:15px; border-radius:5px; border: 1px solid #444;">
-                <h4 style="margin:0 0 10px 0; color:var(--netflix-red);">Add Question</h4>
-                <input type="text" id="cq-text" placeholder="Question Text">
-                <div style="display:flex; gap:5px;"><input type="text" id="cq-o1" placeholder="A"><input type="text" id="cq-o2" placeholder="B"></div>
-                <div style="display:flex; gap:5px;"><input type="text" id="cq-o3" placeholder="C"><input type="text" id="cq-o4" placeholder="D"></div>
-                <select id="cq-correct"><option value="0">Correct: A</option><option value="1">Correct: B</option><option value="2">Correct: C</option><option value="3">Correct: D</option></select>
-                <button class="secondary" onclick="addQuestion()" id="btn-add">ADD +</button>
-            </div>
+            <button class="cyber-btn" onclick="App.joinGame()">ESTABLISH LINK</button>
 
-            <div style="background:#222; padding:15px; border-radius:5px; margin-top:15px; border: 1px solid #444;">
-                <label>Limit: <span id="limit-val">5</span></label>
-                <input type="range" id="q-limit" min="1" max="20" value="5" oninput="document.getElementById('limit-val').innerText = this.value">
-                <div style="margin-top:10px;"><input type="checkbox" id="use-custom" style="width:auto;"> Use Custom Questions</div>
-                <button onclick="startGame()" id="btn-start">▶ LAUNCH GAME</button>
+            <div class="admin-toggle-wrapper" id="admin-toggler" onclick="App.toggleAdmin()">
+                <span style="font-family: var(--font-data); font-size: 0.8rem; color: #666;">PLAYER</span>
+                <div class="toggle-switch"><div class="toggle-knob"></div></div>
+                <span style="font-family: var(--font-data); font-size: 0.8rem; color: #666;">HOST</span>
             </div>
         </div>
-        <p id="wait-msg">Host is preparing the quiz...</p>
     </div>
 
-    <div id="p-game" class="page" style="justify-content: center;">
-        <div id="timer-bar"><div id="timer-fill"></div></div>
+    <div id="view-lobby" class="view-layer">
+        <div class="glass-hud" style="max-width: 700px;">
+            <h1>LOBBY</h1>
+            <h3 id="lobby-status">WAITING FOR SIGNAL...</h3>
+            
+            <div id="lobby-grid" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin: 30px 0;"></div>
+
+            <div id="host-panel" style="display:none; text-align:left; border-top:1px solid #333; margin-top:20px; padding-top:15px;">
+                <div class="admin-tabs">
+                    <button class="tab-btn active-tab" onclick="App.switchTab('config', this)">MISSION CONFIG</button>
+                    <button class="tab-btn" onclick="App.switchTab('uplink', this)">DATA UPLINK</button>
+                </div>
+
+                <div id="tab-config" class="tab-content show">
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1">
+                            <label style="font-size:0.7rem; color:#666;">QUESTIONS</label>
+                            <input type="number" id="cfg-limit" value="10" style="margin:0; padding:10px;">
+                        </div>
+                        <div style="flex:1">
+                            <label style="font-size:0.7rem; color:#666;">SECONDS/Q</label>
+                            <input type="number" id="cfg-time" value="15" style="margin:0; padding:10px;">
+                        </div>
+                    </div>
+                    <button class="cyber-btn" onclick="App.startGame()">▶ INITIATE LAUNCH</button>
+                </div>
+
+                <div id="tab-uplink" class="tab-content">
+                    <p style="font-size:0.8rem; color:#888;">PASTE TEXT OR DRAG PDF</p>
+                    <textarea id="import-text" placeholder="Format:&#10;1. Question?&#10;A. Option&#10;B. Option&#10;Answer: A"></textarea>
+                    
+                    <div class="upload-zone" onclick="document.getElementById('import-file').click()">
+                        <span>📄 CLICK TO UPLOAD PDF</span>
+                        <input type="file" id="import-file" accept=".pdf" style="display:none;" onchange="App.handleFileSelect()">
+                    </div>
+                    <div id="file-name-display" style="font-size:0.8rem; color:var(--neon-blue); margin-top:5px;"></div>
+
+                    <button class="cyber-btn secondary" onclick="App.parseData()">ANALYZE DATA</button>
+                    
+                    <div id="import-preview" class="preview-box" style="display:none;"></div>
+                    <button id="btn-commit" class="cyber-btn" style="display:none; border-color:var(--neon-green); color:var(--neon-green);" onclick="App.commitImport()">COMMIT TO DATABASE</button>
+                </div>
+            </div>
+            
+            <p id="lobby-wait-msg" style="font-family: var(--font-data); font-size: 0.8rem; color: #444; margin-top: 20px;">
+                Host is calibrating the mainframe...
+            </p>
+        </div>
+    </div>
+
+    <div id="view-game" class="view-layer">
+        <div id="timer-container"><div id="timer-fill"></div></div>
         
-        <div style="display:flex; justify-content:space-between; width: 90%; max-width: 800px; margin-bottom: 10px; color:#aaa; font-weight:bold;">
-            <span id="q-points">PTS: 0</span>
-            <span id="q-num">Q: 1/10</span>
-        </div>
+        <div class="glass-hud">
+            <div class="info-bar">
+                <span id="game-q-count">Q 1/10</span>
+                <span class="score-display" id="game-score">0 PTS</span>
+            </div>
 
-        <div id="roast-box"></div>
-
-        <div id="game-content">
-            <div class="question-box" id="q-text">Loading...</div>
-            <div class="options-grid" id="options-container"></div>
-        </div>
-
-        <div id="int-leaderboard" style="display:none; width:90%; max-width:500px;">
-            <h2 style="text-align:center; color: var(--neon-blue);">ROUND SCORES</h2>
-            <div id="int-list"></div>
-        </div>
-
-        <div id="admin-actions">
-            <button id="btn-show-scores" onclick="showScores()" style="background: #f39c12;">📊 SHOW SCORES</button>
-            <button id="btn-next-q" onclick="nextQ()" style="display:none;">NEXT QUESTION ⏩</button>
+            <div class="question-display" id="game-q-text">LOADING DATA STREAM...</div>
+            
+            <div class="options-grid" id="game-opts">
+                </div>
         </div>
     </div>
 
-    <div id="p-result" class="page" style="justify-content: center;">
-        <h1>FINAL LEADERBOARD</h1>
-        <div id="leaderboard-box" style="width:90%; max-width:500px;"></div>
+    <div id="view-result" class="view-layer">
+        <div class="glass-hud">
+            <h1 id="res-title">RESULTS</h1>
+            
+            <div id="roast-box"></div>
+            
+            <div class="leaderboard-container" id="res-list">
+                </div>
+        </div>
+    </div>
+
+    <div id="admin-float">
+        <div style="text-align:center; font-size:0.7rem; color:#666; margin-bottom:5px;">LIVE CONTROL</div>
+        <button class="cyber-btn" style="font-size:0.9rem; padding:10px; border-color:#ffa500; color:#ffa500;" onclick="socket.emit('admin_show_scores')">📊 SHOW SCORES</button>
+        <button class="cyber-btn" style="font-size:0.9rem; padding:10px;" onclick="socket.emit('admin_next_question')">⏩ NEXT Q</button>
     </div>
 
     <script>
         const socket = io();
-        let isAdmin = false;
+        
+        // --- 1. STATE MANAGEMENT ---
+        const State = {
+            isAdmin: false,
+            myAvatar: '💀',
+            myName: '',
+            importedQs: [],
+            audioTracks: ['/static/audio/game.mp3', '/static/audio/game1.mp3', '/static/audio/game2.mp3', '/static/audio/game3.mp3']
+        };
 
-        // --- AUDIO ---
-        const audio = {
-            lobby: new Audio('/static/audio/lobby.mp3'),
-            results: document.getElementById('bgm-results'),
-            playlist: ['/static/audio/game1.mp3', '/static/audio/game2.mp3'],
-            currentTrack: null,
-
-            playLobby: function() { this.stop(); this.lobby.loop = true; this.lobby.play().catch(e=>{}); },
-            playGame: function() { 
-                this.stop(); 
-                const track = this.playlist[Math.floor(Math.random()*this.playlist.length)];
-                this.currentTrack = new Audio(track); this.currentTrack.play().catch(e=>{}); 
+        // --- 2. AUDIO SYSTEM ---
+        const AudioSys = {
+            els: {
+                init: document.getElementById('sfx-init'),
+                lobby: document.getElementById('bgm-lobby'),
+                results: document.getElementById('bgm-results'),
+                game: document.getElementById('bgm-game')
             },
-            playResults: function() { this.stop(); this.results.play().catch(e=>{}); },
-            stop: function() {
-                this.lobby.pause(); this.results.pause(); this.results.currentTime=0;
-                if(this.currentTrack) this.currentTrack.pause();
+            stopAll() {
+                Object.values(this.els).forEach(el => {
+                    el.pause(); 
+                    if(el.currentTime) el.currentTime = 0;
+                });
+            },
+            playLobby() {
+                this.stopAll();
+                this.els.lobby.volume = 0.5;
+                this.els.lobby.play().catch(e => console.warn("Audio blocked"));
+            },
+            playGame() {
+                this.stopAll();
+                const track = State.audioTracks[Math.floor(Math.random() * State.audioTracks.length)];
+                this.els.game.src = track;
+                this.els.game.volume = 0.4;
+                this.els.game.play();
+            },
+            playResults() {
+                this.stopAll();
+                this.els.results.volume = 0.6;
+                this.els.results.play();
             }
         };
 
-        // --- ACTIONS ---
-        function joinGame() {
-            const name = document.getElementById('username').value;
-            if(!name) return alert("Enter Name");
-            audio.playLobby();
-            socket.emit('join_game', { name: name });
-        }
-        function addQuestion() {
-            socket.emit('add_custom_question', {
-                q: document.getElementById('cq-text').value,
-                o1: document.getElementById('cq-o1').value, o2: document.getElementById('cq-o2').value,
-                o3: document.getElementById('cq-o3').value, o4: document.getElementById('cq-o4').value,
-                correct: document.getElementById('cq-correct').value
-            });
-            document.getElementById('btn-add').innerText = "✅";
-            setTimeout(()=>document.getElementById('btn-add').innerText="ADD +", 1000);
-        }
-        function startGame() {
-            socket.emit('admin_start_game', { 
-                limit: document.getElementById('q-limit').value, 
-                use_custom: document.getElementById('use-custom').checked 
-            });
-        }
-        function showScores() { socket.emit('admin_show_scores'); }
-        function nextQ() { socket.emit('admin_next_question'); }
-        
-        function submitAnswer(idx) {
-            const btns = document.querySelectorAll('.option-btn');
-            btns.forEach(b => b.style.opacity = 0.3);
-            btns[idx].style.opacity = 1; btns[idx].style.background = "white"; btns[idx].style.color = "black";
-            const w = document.getElementById('timer-fill').offsetWidth;
-            const t = document.getElementById('timer-bar').offsetWidth;
-            socket.emit('submit_answer', { answer_index: idx, time_left: (w/t)*30 });
-        }
+        // --- 3. VISUAL ENGINE (THREE.JS) ---
+        const Visuals = {
+            scene: null, camera: null, renderer: null, particles: null,
+            mode: 'idle', time: 0,
+            
+            init() {
+                const canvas = document.getElementById('visual-engine');
+                this.renderer = new THREE.WebGLRenderer({canvas: canvas, alpha: true});
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                this.camera.position.z = 50;
+                
+                // Create Particles
+                const geo = new THREE.BufferGeometry();
+                const count = 3000;
+                const pos = new Float32Array(count * 3);
+                for(let i=0; i<count*3; i++) pos[i] = (Math.random()-0.5) * 150;
+                
+                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                const mat = new THREE.PointsMaterial({
+                    size: 0.4, color: 0x00f3ff, 
+                    transparent: true, opacity: 0.8,
+                    blending: THREE.AdditiveBlending
+                });
+                
+                this.particles = new THREE.Points(geo, mat);
+                this.scene.add(this.particles);
+                
+                this.animate();
+            },
+            
+            setMode(mode) {
+                this.mode = mode;
+                const color = {
+                    'idle': 0x00f3ff,   // Cyan
+                    'lobby': 0xffffff,  // White
+                    'warp': 0xff0055,   // Red/Pink
+                    'gold': 0xffd700,   // Gold
+                    'matrix': 0x00ff41  // Green
+                }[mode] || 0x00f3ff;
+                
+                this.particles.material.color.setHex(color);
+            },
+            
+            animate() {
+                requestAnimationFrame(this.animate.bind(this));
+                this.time += 0.01;
+                
+                const positions = this.particles.geometry.attributes.position.array;
+                const count = positions.length / 3;
+                
+                for(let i=0; i < count; i++) {
+                    const idx = i * 3;
+                    const x = positions[idx];
+                    const y = positions[idx+1];
+                    const z = positions[idx+2];
+                    
+                    // BEHAVIORS
+                    if(this.mode === 'idle') {
+                        positions[idx] += Math.sin(this.time + y*0.05) * 0.02;
+                    }
+                    else if(this.mode === 'lobby') {
+                        this.particles.rotation.y += 0.0001;
+                    }
+                    else if(this.mode === 'warp') {
+                        positions[idx+2] += 2; 
+                        if(positions[idx+2] > 60) positions[idx+2] = -100;
+                    }
+                    else if(this.mode === 'gold') {
+                        positions[idx+1] -= 0.3;
+                        positions[idx] += Math.sin(this.time + z)*0.1;
+                        if(positions[idx+1] < -60) positions[idx+1] = 60;
+                    }
+                    else if(this.mode === 'matrix') {
+                        positions[idx+1] -= 0.5;
+                        if(positions[idx+1] < -60) positions[idx+1] = 60;
+                    }
+                }
+                
+                this.particles.geometry.attributes.position.needsUpdate = true;
+                this.renderer.render(this.scene, this.camera);
+            }
+        };
 
-        // --- SOCKETS ---
+        // --- 4. APP LOGIC ---
+        const App = {
+            initSystem() {
+                AudioSys.els.init.play();
+                AudioSys.playLobby();
+                Visuals.init();
+                this.showView('view-login');
+            },
+            
+            selectAvatar(icon, el) {
+                document.querySelectorAll('.av-icon').forEach(x => x.classList.remove('selected'));
+                el.classList.add('selected');
+                State.myAvatar = icon;
+            },
+            
+            toggleAdmin() {
+                State.isAdmin = !State.isAdmin;
+                const wrapper = document.getElementById('admin-toggler');
+                const inp = document.getElementById('inp-name');
+                
+                if(State.isAdmin) {
+                    wrapper.classList.add('admin-active');
+                    inp.value = "HOST ADMIN";
+                    inp.disabled = true;
+                } else {
+                    wrapper.classList.remove('admin-active');
+                    inp.value = "";
+                    inp.disabled = false;
+                }
+            },
+            
+            joinGame() {
+                let name = document.getElementById('inp-name').value;
+                if(!name) return alert("IDENTITY REQUIRED");
+                
+                State.myName = name;
+                socket.emit('join_game', {
+                    name: name,
+                    avatar: State.myAvatar,
+                    force_admin: State.isAdmin
+                });
+            },
+
+            // --- ADMIN TABS & UPLOAD LOGIC ---
+            switchTab(tabName, btn) {
+                document.querySelectorAll('.admin-view').forEach(v => v.classList.remove('show'));
+                document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active-tab'));
+                document.getElementById('tab-'+tabName).classList.add('show');
+                btn.classList.add('active-tab');
+            },
+
+            handleFileSelect() {
+                const f = document.getElementById('import-file').files[0];
+                if(f) document.getElementById('file-name-display').innerText = "FILE LOCKED: " + f.name;
+            },
+
+            async parseData() {
+                const fd = new FormData();
+                const file = document.getElementById('import-file').files[0];
+                const text = document.getElementById('import-text').value;
+
+                if(!file && !text) return alert("INPUT DATA MISSING");
+                
+                if(file) fd.append('file', file);
+                fd.append('raw_text', text);
+
+                try {
+                    const res = await fetch('/upload_parse', {method:'POST', body:fd});
+                    const d = await res.json();
+                    
+                    if(d.status === 'success' && d.questions.length > 0) {
+                        State.importedQs = d.questions;
+                        const prev = document.getElementById('import-preview');
+                        prev.style.display = 'block';
+                        prev.innerHTML = d.questions.slice(0,3).map((q,i) => 
+                            `<div class="preview-item"><b>${i+1}. ${q.q}</b><br>Ans: ${q.a}</div>`
+                        ).join('') + (d.questions.length > 3 ? `...and ${d.questions.length-3} more` : '');
+                        
+                        document.getElementById('btn-commit').style.display = 'inline-block';
+                        alert(`PARSED ${d.questions.length} ENTRIES`);
+                    } else alert("DATA CORRUPTION OR EMPTY");
+                } catch(e) { console.error(e); alert("UPLINK FAILED"); }
+            },
+
+            commitImport() {
+                socket.emit('admin_bulk_import', {questions: State.importedQs});
+                document.getElementById('import-preview').style.display='none';
+                document.getElementById('btn-commit').style.display='none';
+                document.getElementById('import-text').value = '';
+            },
+            
+            startGame() {
+                socket.emit('admin_start_game', {
+                    limit: document.getElementById('cfg-limit').value,
+                    time: document.getElementById('cfg-time').value
+                });
+            },
+            
+            submitAnswer(idx, el) {
+                document.querySelectorAll('.option-card').forEach(c => c.classList.add('dimmed'));
+                el.classList.remove('dimmed');
+                el.classList.add('locked');
+                
+                const bar = document.getElementById('timer-fill');
+                const timeSet = parseInt(document.getElementById('cfg-time').value) || 15;
+                const timeLeft = (bar.offsetWidth / window.innerWidth) * timeSet;
+                
+                socket.emit('submit_answer', { answer_index: idx, time_left: timeLeft });
+            },
+            
+            showView(id) {
+                document.querySelectorAll('.view-layer').forEach(v => v.classList.remove('active'));
+                setTimeout(() => document.getElementById(id).classList.add('active'), 50);
+            }
+        };
+
+        // --- 5. SOCKET HANDLERS ---
         socket.on('join_success', (data) => {
-            isAdmin = data.is_admin;
-            switchPage('p-lobby');
-            if(isAdmin) { document.getElementById('admin-controls').style.display='block'; document.getElementById('wait-msg').style.display='none'; }
+            State.isAdmin = data.is_admin;
+            App.showView('view-lobby');
+            Visuals.setMode('lobby');
+            
+            if(State.isAdmin) {
+                document.getElementById('host-panel').style.display = 'block';
+                document.getElementById('lobby-wait-msg').style.display = 'none';
+                document.getElementById('lobby-status').innerText = "HOST CONTROLS ACTIVE";
+                document.getElementById('lobby-status').style.color = "var(--neon-green)";
+            }
         });
+
         socket.on('update_lobby', (data) => {
-            const l = document.getElementById('lobby-list'); l.innerHTML='';
-            data.players.forEach(p => l.innerHTML+=`<div style="background:#333; padding:5px 15px; border-radius:20px;">${p[0]}</div>`);
-            document.getElementById('player-count').innerText = `${data.players.length} Players Ready`;
+            const grid = document.getElementById('lobby-grid');
+            grid.innerHTML = '';
+            data.players.forEach(p => {
+                const el = document.createElement('div');
+                el.style.cssText = "background:#222; padding:8px 15px; border-radius:4px; font-family:var(--font-data); border:1px solid #444;";
+                el.innerHTML = `<span style="font-size:1.2rem; margin-right:5px;">${p[2]}</span> ${p[0]}`;
+                grid.appendChild(el);
+            });
+            if(!State.isAdmin) document.getElementById('lobby-status').innerText = `${data.players.length} AGENTS READY`;
         });
-        
-        socket.on('game_started', () => { document.getElementById('loading-overlay').style.display='flex'; visuals.setMode('warp'); });
+
+        socket.on('admin_msg', d => alert(d.msg));
 
         socket.on('new_question', (data) => {
-            // Reset View
-            document.getElementById('loading-overlay').style.display='none';
-            document.getElementById('game-content').style.display='block';
-            document.getElementById('int-leaderboard').style.display='none';
-            document.getElementById('roast-box').style.display='none';
-            switchPage('p-game');
-            audio.playGame();
+            App.showView('view-game');
+            AudioSys.playGame();
+            Visuals.setMode('warp');
             
-            // Random Visuals
-            const effects = ['cube_field', 'ring', 'wave', 'rain'];
-            visuals.setMode(effects[Math.floor(Math.random()*effects.length)]);
+            document.getElementById('game-q-count').innerText = `SEQ ${data.current} / ${data.total}`;
+            document.getElementById('game-q-text').innerText = data.q;
+            document.getElementById('game-score').innerText = State.myName;
+            
+            const grid = document.getElementById('game-opts');
+            grid.innerHTML = '';
+            
+            data.options.forEach((opt, i) => {
+                const btn = document.createElement('div');
+                btn.className = 'option-card';
+                btn.innerText = opt;
+                btn.onclick = () => App.submitAnswer(i, btn);
+                grid.appendChild(btn);
+            });
 
-            // Set Data
-            document.getElementById('q-text').innerText = data.q;
-            document.getElementById('q-num').innerText = `Q: ${data.current}/${data.total}`;
-            const c = document.getElementById('options-container'); c.innerHTML='';
-            data.options.forEach((o,i) => c.innerHTML+=`<div class="option-btn" onclick="submitAnswer(${i})">${o}</div>`);
-
-            // Timer
-            const f = document.getElementById('timer-fill'); f.style.transition='none'; f.style.width='100%';
-            setTimeout(() => { f.style.transition=`width ${data.time}s linear`; f.style.width='0%'; }, 100);
-
-            // Admin Buttons Logic
-            if(isAdmin) {
-                document.getElementById('admin-actions').style.display='flex';
-                document.getElementById('btn-show-scores').style.display='block';
-                document.getElementById('btn-next-q').style.display='none';
-            }
+            // Start Timer
+            const bar = document.getElementById('timer-fill');
+            bar.style.transition = 'none'; bar.style.width = '100%';
+            void bar.offsetWidth;
+            bar.style.transition = `width ${data.time}s linear`; bar.style.width = '0%';
+            
+            if(State.isAdmin) document.getElementById('admin-float').style.display = 'flex';
         });
 
         socket.on('show_intermediate_results', (data) => {
-            // Play Results Music
-            audio.playResults();
-            visuals.setMode('slow');
-
-            // Hide Question, Show Scores
-            document.getElementById('game-content').style.display='none';
-            const board = document.getElementById('int-leaderboard');
-            board.style.display='block';
-            const list = document.getElementById('int-list');
-            list.innerHTML='';
-            
-            data.leaderboard.slice(0,5).forEach((p, i) => {
-                list.innerHTML += `<div style="background:#222; padding:10px; margin:5px; display:flex; justify-content:space-between; border-radius:4px;">
-                    <span>#${i+1} ${p[0]}</span><span style="color:#00f3ff; font-weight:bold;">${p[1]}</span>
-                </div>`;
-            });
-
-            // ROAST?
-            if(data.roast) {
-                const rBox = document.getElementById('roast-box');
-                rBox.style.display='block';
-                rBox.innerText = data.roast;
-            }
-
-            // Admin Logic: Switch button to Next
-            if(isAdmin) {
-                document.getElementById('btn-show-scores').style.display='none';
-                document.getElementById('btn-next-q').style.display='block';
-            }
+            handleResults(data, "ROUND UPDATE");
         });
 
         socket.on('game_over', (data) => {
-            switchPage('p-result'); audio.playResults();
-            const b = document.getElementById('leaderboard-box'); b.innerHTML='';
-            data.leaderboard.forEach((p,i)=>b.innerHTML+=`<div style="background:#222; padding:15px; margin:5px; display:flex; justify-content:space-between;"><span>#${i+1} ${p[0]}</span><span>${p[1]}</span></div>`);
-            if(isAdmin) document.getElementById('admin-actions').style.display='none';
+            handleResults(data, "MISSION COMPLETE");
         });
 
-        function switchPage(id) {
-            document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
+        function handleResults(data, title) {
+            App.showView('view-result');
+            AudioSys.playResults();
+            Visuals.setMode('gold');
+            
+            document.getElementById('res-title').innerText = title;
+            const rBox = document.getElementById('roast-box');
+            if(data.roast) {
+                rBox.style.display = 'block';
+                rBox.innerText = `>> SYSTEM MSG: ${data.roast}`;
+                rBox.style.animation = 'none';
+                void rBox.offsetWidth;
+                rBox.style.animation = 'glitch-anim 0.3s infinite';
+                setTimeout(()=> rBox.style.animation = 'none', 1000);
+            } else rBox.style.display = 'none';
+
+            const list = document.getElementById('res-list');
+            list.innerHTML = '';
+            data.leaderboard.forEach((p, i) => {
+                const isTop = i === 0;
+                const row = document.createElement('div');
+                row.className = 'leader-row' + (isTop ? ' rank-1' : '');
+                row.innerHTML = `<span>#${i+1} ${p[2]} ${p[0]}</span><span>${p[1]}</span>`;
+                list.appendChild(row);
+            });
+
+            if(State.isAdmin) document.getElementById('admin-float').style.display = 'flex';
+            confetti({ particleCount: 200, spread: 80, origin: { y: 0.6 } });
         }
 
-        // --- 3D VISUALS (Simplified for length) ---
-        const visuals = {
-            scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000),
-            renderer: new THREE.WebGLRenderer({canvas:document.getElementById('bg-canvas'),alpha:true}),
-            particles: null, mode: 'slow', time: 0,
-            init: function() {
-                this.renderer.setSize(window.innerWidth,window.innerHeight); this.camera.position.z=50;
-                const geo = new THREE.BufferGeometry(); const pos=[];
-                for(let i=0;i<6000;i++) pos.push((Math.random()-0.5)*100);
-                geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-                this.particles = new THREE.Points(geo, new THREE.PointsMaterial({color:0xe50914,size:0.5}));
-                this.scene.add(this.particles); this.animate();
-            },
-            setMode: function(m) { this.mode=m; },
-            animate: function() {
-                requestAnimationFrame(this.animate.bind(this)); this.time+=0.01;
-                const p = this.particles.geometry.attributes.position.array;
-                for(let i=0;i<2000;i++) {
-                    const x=p[i*3], y=p[i*3+1], z=p[i*3+2];
-                    if(this.mode==='slow') p[i*3+1]+=Math.sin(this.time+x)*0.02;
-                    else if(this.mode==='warp') { p[i*3+2]+=2; if(p[i*3+2]>50) p[i*3+2]=-50; }
-                    else if(this.mode==='wave') p[i*3+1]=Math.sin(x*0.1+this.time*2)*10;
-                    else if(this.mode==='ring') { const a=this.time+i*0.01; p[i*3]=Math.cos(a)*30+(Math.random()-0.5)*2; p[i*3+2]=Math.sin(a)*30+(Math.random()-0.5)*2; }
-                    else if(this.mode==='rain') { p[i*3+1]-=0.5; if(p[i*3+1]<-50) p[i*3+1]=50; }
-                }
-                this.particles.geometry.attributes.position.needsUpdate=true;
-                this.renderer.render(this.scene,this.camera);
+        window.addEventListener('resize', () => {
+            if(Visuals.renderer) {
+                Visuals.renderer.setSize(window.innerWidth, window.innerHeight);
+                Visuals.camera.aspect = window.innerWidth/window.innerHeight;
+                Visuals.camera.updateProjectionMatrix();
             }
-        };
-        visuals.init();
-        window.addEventListener('resize', () => { visuals.renderer.setSize(window.innerWidth, window.innerHeight); visuals.camera.aspect = window.innerWidth / window.innerHeight; visuals.camera.updateProjectionMatrix(); });
+        });
     </script>
 </body>
 </html>
