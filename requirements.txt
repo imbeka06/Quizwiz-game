@@ -3,3 +3,4 @@ flask-socketio
 eventlet
 gunicorn
 pypdf2
+qrcode[pil]
