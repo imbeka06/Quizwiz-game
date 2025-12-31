@@ -7,96 +7,64 @@
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        :root { --netflix-red: #e50914; --bg-black: #141414; }
+        :root { --netflix-red: #e50914; --bg-black: #141414; --neon-blue: #00f3ff; }
         
-        /* 1. CORE LAYOUT FIXES */
-        body { margin: 0; background: var(--bg-black); color: white; font-family: 'Helvetica Neue', sans-serif; overflow: hidden; /* Keep body fixed for 3D bg */ }
-        
+        body { margin: 0; background: var(--bg-black); color: white; font-family: 'Helvetica Neue', sans-serif; overflow: hidden; }
         #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; width: 100vw; height: 100vh; }
         
-        /* The container for each page allows scrolling if content is too tall */
         .page { 
-            display: none; 
-            height: 100vh; 
-            width: 100%; 
-            overflow-y: auto; /* ALLOW SCROLLING */
-            overflow-x: hidden;
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: flex-start; /* Start from top so we can scroll down */
-            padding-top: 50px; /* Space from top */
-            position: absolute; 
-            top: 0; 
-            box-sizing: border-box;
-            padding-bottom: 50px;
+            display: none; height: 100vh; width: 100%; overflow-y: auto; 
+            flex-direction: column; align-items: center; padding-top: 50px; position: absolute; top: 0;
         }
-        .active { display: flex !important; animation: fadeIn 0.8s; }
+        .active { display: flex !important; animation: fadeIn 0.5s; }
         
-        /* UI COMPONENTS - RESPONSIVE */
         .glass-card { 
-            background: rgba(0,0,0,0.9); 
-            padding: 30px; 
-            border-radius: 10px; 
-            border-top: 4px solid var(--netflix-red); 
-            width: 90%; 
-            max-width: 500px; /* Max width for laptop, shrinks for phone */
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
-            margin-bottom: 20px;
+            background: rgba(0,0,0,0.9); padding: 25px; border-radius: 10px; 
+            border-top: 4px solid var(--netflix-red); width: 90%; max-width: 500px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); margin-bottom: 20px;
         }
         
         h1 { font-size: 2.5rem; margin: 0 0 20px 0; text-shadow: 0 0 20px rgba(229,9,20,0.6); text-align: center; }
-        
-        input, select { 
-            width: 100%; 
-            padding: 12px; 
-            margin: 8px 0; 
-            background: #333; 
-            border: 1px solid #444; 
-            color: white; 
-            border-radius: 4px; 
-            font-size: 1rem; 
-            box-sizing: border-box; /* Fix padding issues */
-        }
+        input, select { width: 100%; padding: 12px; margin: 5px 0; background: #333; border: 1px solid #444; color: white; border-radius: 4px; box-sizing: border-box; }
         
         button { width: 100%; padding: 15px; background: var(--netflix-red); color: white; border: none; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 15px; border-radius: 4px; }
+        button:hover { transform: scale(1.02); }
         button.secondary { background: #333; border: 1px solid #555; }
         
         /* GAME UI */
-        .question-box { font-size: 1.8rem; margin-bottom: 20px; width: 90%; max-width: 800px; line-height: 1.3; font-weight: bold; text-align: center; }
-        
-        .options-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; /* 2 columns on laptop */
-            gap: 15px; 
-            width: 90%; 
-            max-width: 800px; 
-        }
-        
+        .question-box { font-size: 1.8rem; margin-bottom: 20px; width: 90%; max-width: 800px; text-align: center; font-weight: bold; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; max-width: 800px; }
         .option-btn { background: linear-gradient(145deg, #2a2a2a, #333); padding: 20px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; border: 2px solid transparent; text-align: center; }
-        .option-btn:hover { border-color: white; }
         
         #timer-bar { width: 100%; height: 8px; background: #222; position: fixed; top: 0; left: 0; z-index: 100; }
         #timer-fill { width: 100%; height: 100%; background: var(--netflix-red); }
         
-        /* ADMIN PANEL - MOBILE OPTIMIZED */
-        .admin-row { display: flex; gap: 10px; }
-        
-        /* MEDIA QUERY FOR PHONES */
-        @media (max-width: 600px) {
-            h1 { font-size: 2rem; }
-            .options-grid { grid-template-columns: 1fr; } /* Stack buttons on phone */
-            .admin-row { flex-direction: column; gap: 0; } /* Stack admin inputs */
-            .glass-card { padding: 20px; width: 95%; }
-            .question-box { font-size: 1.4rem; }
+        /* ROAST OVERLAY */
+        #roast-box {
+            background: rgba(255, 0, 0, 0.8); color: white; padding: 20px; border-radius: 10px;
+            font-size: 1.5rem; font-weight: bold; text-align: center; margin-bottom: 20px;
+            display: none; border: 2px solid white; box-shadow: 0 0 20px red;
+            animation: popIn 0.5s;
         }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        /* ADMIN CONTROL BAR (FIXED BOTTOM) */
+        #admin-actions {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: none; gap: 10px; z-index: 999;
+        }
+        #admin-actions button { width: auto; padding: 15px 30px; margin: 0; box-shadow: 0 0 10px black; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
     </style>
 </head>
 <body>
     <canvas id="bg-canvas"></canvas>
     
     <audio id="sfx-join"><source src="/static/audio/tadum.mp3"></audio>
+    <audio id="bgm-results"><source src="/static/audio/results.mp3"></audio> <div id="loading-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:999; display:none; flex-direction:column; justify-content:center; align-items:center;">
+        <h1 style="font-size:4rem; color:var(--netflix-red);">GET READY</h1>
+    </div>
 
     <div id="p-login" class="page active" style="justify-content: center;">
         <h1>QUIZWIZ</h1>
@@ -109,52 +77,28 @@
 
     <div id="p-lobby" class="page">
         <h1>LOBBY</h1>
-        <h3 id="player-count" style="color:#999; margin-bottom: 20px;">Waiting for players...</h3>
-        
+        <h3 id="player-count" style="color:#999;">Waiting...</h3>
         <div id="lobby-list" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; width:90%; margin-bottom:20px;"></div>
         
         <div id="admin-controls" class="glass-card" style="display:none; max-width: 600px;">
-            <h3 style="margin-top:0;">HOST CONTROLS</h3>
+            <h3>HOST CONTROLS</h3>
             
-            <div style="background:#222; padding:15px; border-radius:5px; margin-bottom:15px;">
-                <label>Question Count: <span id="limit-val">5</span></label>
-                <input type="range" id="q-limit" min="3" max="20" value="5" oninput="document.getElementById('limit-val').innerText = this.value">
-                <div style="margin-top:10px;">
-                    <input type="checkbox" id="use-custom" style="width:auto;"> Use Custom Questions Only
-                </div>
-                <button onclick="startGame()">▶ START GAME</button>
+            <div style="background:#222; padding:15px; border-radius:5px; border: 1px solid #444;">
+                <h4 style="margin:0 0 10px 0; color:var(--netflix-red);">Add Question</h4>
+                <input type="text" id="cq-text" placeholder="Question Text">
+                <div style="display:flex; gap:5px;"><input type="text" id="cq-o1" placeholder="A"><input type="text" id="cq-o2" placeholder="B"></div>
+                <div style="display:flex; gap:5px;"><input type="text" id="cq-o3" placeholder="C"><input type="text" id="cq-o4" placeholder="D"></div>
+                <select id="cq-correct"><option value="0">Correct: A</option><option value="1">Correct: B</option><option value="2">Correct: C</option><option value="3">Correct: D</option></select>
+                <button class="secondary" onclick="addQuestion()" id="btn-add">ADD +</button>
             </div>
 
-            <div style="background:#222; padding:15px; border-radius:5px;">
-                <h4 style="margin:0 0 10px 0; color:var(--netflix-red);">Add Custom Question</h4>
-                <input type="text" id="cq-text" placeholder="Question Text (e.g. Who is the boss?)">
-                
-                <div class="admin-row">
-                    <input type="text" id="cq-o1" placeholder="Option A">
-                    <input type="text" id="cq-o2" placeholder="Option B">
-                </div>
-                <div class="admin-row">
-                    <input type="text" id="cq-o3" placeholder="Option C">
-                    <input type="text" id="cq-o4" placeholder="Option D">
-                </div>
-                <div class="admin-row">
-                    <select id="cq-correct">
-                        <option value="0">Correct: Option A</option>
-                        <option value="1">Correct: Option B</option>
-                        <option value="2">Correct: Option C</option>
-                        <option value="3">Correct: Option D</option>
-                    </select>
-                    <select id="cq-diff">
-                        <option value="1">Easy (15s)</option>
-                        <option value="2">Medium (25s)</option>
-                        <option value="3">Hard (35s)</option>
-                    </select>
-                </div>
-                <button class="secondary" onclick="addQuestion()">+ ADD TO POOL</button>
-                <p id="admin-status" style="color:#0f0; font-size:0.8rem; margin-top:5px;"></p>
+            <div style="background:#222; padding:15px; border-radius:5px; margin-top:15px; border: 1px solid #444;">
+                <label>Limit: <span id="limit-val">5</span></label>
+                <input type="range" id="q-limit" min="1" max="20" value="5" oninput="document.getElementById('limit-val').innerText = this.value">
+                <div style="margin-top:10px;"><input type="checkbox" id="use-custom" style="width:auto;"> Use Custom Questions</div>
+                <button onclick="startGame()" id="btn-start">▶ LAUNCH GAME</button>
             </div>
         </div>
-        
         <p id="wait-msg">Host is preparing the quiz...</p>
     </div>
 
@@ -162,20 +106,30 @@
         <div id="timer-bar"><div id="timer-fill"></div></div>
         
         <div style="display:flex; justify-content:space-between; width: 90%; max-width: 800px; margin-bottom: 10px; color:#aaa; font-weight:bold;">
-            <span id="q-points">PTS: 1000</span>
+            <span id="q-points">PTS: 0</span>
             <span id="q-num">Q: 1/10</span>
         </div>
-        
-        <div class="question-box" id="q-text">Loading...</div>
-        <div class="options-grid" id="options-container"></div>
-        
-        <div id="admin-next" style="display:none; margin-top:30px; width: 90%; max-width: 300px;">
-            <button onclick="nextQ()">NEXT QUESTION ⏩</button>
+
+        <div id="roast-box"></div>
+
+        <div id="game-content">
+            <div class="question-box" id="q-text">Loading...</div>
+            <div class="options-grid" id="options-container"></div>
+        </div>
+
+        <div id="int-leaderboard" style="display:none; width:90%; max-width:500px;">
+            <h2 style="text-align:center; color: var(--neon-blue);">ROUND SCORES</h2>
+            <div id="int-list"></div>
+        </div>
+
+        <div id="admin-actions">
+            <button id="btn-show-scores" onclick="showScores()" style="background: #f39c12;">📊 SHOW SCORES</button>
+            <button id="btn-next-q" onclick="nextQ()" style="display:none;">NEXT QUESTION ⏩</button>
         </div>
     </div>
 
     <div id="p-result" class="page" style="justify-content: center;">
-        <h1>LEADERBOARD</h1>
+        <h1>FINAL LEADERBOARD</h1>
         <div id="leaderboard-box" style="width:90%; max-width:500px;"></div>
     </div>
 
@@ -186,29 +140,20 @@
         // --- AUDIO ---
         const audio = {
             lobby: new Audio('/static/audio/lobby.mp3'),
-            playlist: ['/static/audio/game1.mp3', '/static/audio/game2.mp3', '/static/audio/game3.mp3'],
+            results: document.getElementById('bgm-results'),
+            playlist: ['/static/audio/game1.mp3', '/static/audio/game2.mp3'],
             currentTrack: null,
 
-            playLobby: function() {
-                this.stop();
-                this.lobby.loop = true;
-                this.lobby.volume = 0.4;
-                this.lobby.play().catch(e => {});
+            playLobby: function() { this.stop(); this.lobby.loop = true; this.lobby.play().catch(e=>{}); },
+            playGame: function() { 
+                this.stop(); 
+                const track = this.playlist[Math.floor(Math.random()*this.playlist.length)];
+                this.currentTrack = new Audio(track); this.currentTrack.play().catch(e=>{}); 
             },
-            playGame: function() {
-                this.stop();
-                const track = this.playlist[Math.floor(Math.random() * this.playlist.length)];
-                this.currentTrack = new Audio(track);
-                this.currentTrack.volume = 0.3;
-                this.currentTrack.play().catch(e => {});
-            },
+            playResults: function() { this.stop(); this.results.play().catch(e=>{}); },
             stop: function() {
-                this.lobby.pause();
-                this.lobby.currentTime = 0;
-                if(this.currentTrack) {
-                    this.currentTrack.pause();
-                    this.currentTrack = null;
-                }
+                this.lobby.pause(); this.results.pause(); this.results.currentTime=0;
+                if(this.currentTrack) this.currentTrack.pause();
             }
         };
 
@@ -219,154 +164,154 @@
             audio.playLobby();
             socket.emit('join_game', { name: name });
         }
-        function startGame() {
-            const limit = document.getElementById('q-limit').value;
-            const useCustom = document.getElementById('use-custom').checked;
-            socket.emit('admin_start_game', { limit: limit, use_custom: useCustom });
-        }
         function addQuestion() {
-            const q = document.getElementById('cq-text').value;
-            if(!q) return alert("Type a question first!");
-            
             socket.emit('add_custom_question', {
-                q: q,
-                o1: document.getElementById('cq-o1').value,
-                o2: document.getElementById('cq-o2').value,
-                o3: document.getElementById('cq-o3').value,
-                o4: document.getElementById('cq-o4').value,
-                correct: document.getElementById('cq-correct').value,
-                diff: document.getElementById('cq-diff').value
+                q: document.getElementById('cq-text').value,
+                o1: document.getElementById('cq-o1').value, o2: document.getElementById('cq-o2').value,
+                o3: document.getElementById('cq-o3').value, o4: document.getElementById('cq-o4').value,
+                correct: document.getElementById('cq-correct').value
             });
-            document.getElementById('cq-text').value = '';
-            document.getElementById('cq-o1').value = '';
-            document.getElementById('cq-o2').value = '';
-            document.getElementById('cq-o3').value = '';
-            document.getElementById('cq-o4').value = '';
+            document.getElementById('btn-add').innerText = "✅";
+            setTimeout(()=>document.getElementById('btn-add').innerText="ADD +", 1000);
         }
+        function startGame() {
+            socket.emit('admin_start_game', { 
+                limit: document.getElementById('q-limit').value, 
+                use_custom: document.getElementById('use-custom').checked 
+            });
+        }
+        function showScores() { socket.emit('admin_show_scores'); }
         function nextQ() { socket.emit('admin_next_question'); }
+        
         function submitAnswer(idx) {
             const btns = document.querySelectorAll('.option-btn');
             btns.forEach(b => b.style.opacity = 0.3);
-            btns[idx].style.opacity = 1;
-            btns[idx].style.background = "white";
-            btns[idx].style.color = "black";
-            
-            const totalW = document.getElementById('timer-bar').offsetWidth;
-            const currW = document.getElementById('timer-fill').offsetWidth;
-            const timeLeft = (currW / totalW) * 30; 
-            socket.emit('submit_answer', { answer_index: idx, time_left: timeLeft });
+            btns[idx].style.opacity = 1; btns[idx].style.background = "white"; btns[idx].style.color = "black";
+            const w = document.getElementById('timer-fill').offsetWidth;
+            const t = document.getElementById('timer-bar').offsetWidth;
+            socket.emit('submit_answer', { answer_index: idx, time_left: (w/t)*30 });
         }
 
         // --- SOCKETS ---
         socket.on('join_success', (data) => {
             isAdmin = data.is_admin;
             switchPage('p-lobby');
-            if(isAdmin) {
-                document.getElementById('admin-controls').style.display = 'block';
-                document.getElementById('wait-msg').style.display = 'none';
-            }
-        });
-        socket.on('admin_msg', (data) => {
-            const status = document.getElementById('admin-status');
-            status.innerText = data.msg;
-            setTimeout(() => status.innerText = '', 3000);
+            if(isAdmin) { document.getElementById('admin-controls').style.display='block'; document.getElementById('wait-msg').style.display='none'; }
         });
         socket.on('update_lobby', (data) => {
-            const list = document.getElementById('lobby-list');
-            list.innerHTML = '';
-            document.getElementById('player-count').innerText = `${data.players.length} Ready`;
-            data.players.forEach(p => {
-                list.innerHTML += `<div style="background:#333; padding:5px 15px; border-radius:20px; border:1px solid #555;">${p[0]}</div>`;
-            });
+            const l = document.getElementById('lobby-list'); l.innerHTML='';
+            data.players.forEach(p => l.innerHTML+=`<div style="background:#333; padding:5px 15px; border-radius:20px;">${p[0]}</div>`);
+            document.getElementById('player-count').innerText = `${data.players.length} Players Ready`;
         });
-        socket.on('game_started', () => {
-            audio.playGame();
-            visuals.setMode('warp');
-        });
+        
+        socket.on('game_started', () => { document.getElementById('loading-overlay').style.display='flex'; visuals.setMode('warp'); });
+
         socket.on('new_question', (data) => {
+            // Reset View
+            document.getElementById('loading-overlay').style.display='none';
+            document.getElementById('game-content').style.display='block';
+            document.getElementById('int-leaderboard').style.display='none';
+            document.getElementById('roast-box').style.display='none';
             switchPage('p-game');
-            const effects = ['cube_field', 'ring', 'wave', 'rain'];
-            visuals.setMode(effects[Math.floor(Math.random() * effects.length)]);
+            audio.playGame();
             
+            // Random Visuals
+            const effects = ['cube_field', 'ring', 'wave', 'rain'];
+            visuals.setMode(effects[Math.floor(Math.random()*effects.length)]);
+
+            // Set Data
             document.getElementById('q-text').innerText = data.q;
             document.getElementById('q-num').innerText = `Q: ${data.current}/${data.total}`;
-            document.getElementById('q-points').innerText = `PTS: ${data.points}`;
-            
-            const cont = document.getElementById('options-container');
-            cont.innerHTML = '';
-            data.options.forEach((opt, i) => {
-                cont.innerHTML += `<div class="option-btn" onclick="submitAnswer(${i})">${opt}</div>`;
-            });
+            const c = document.getElementById('options-container'); c.innerHTML='';
+            data.options.forEach((o,i) => c.innerHTML+=`<div class="option-btn" onclick="submitAnswer(${i})">${o}</div>`);
 
-            if(isAdmin) document.getElementById('admin-next').style.display = 'block';
+            // Timer
+            const f = document.getElementById('timer-fill'); f.style.transition='none'; f.style.width='100%';
+            setTimeout(() => { f.style.transition=`width ${data.time}s linear`; f.style.width='0%'; }, 100);
 
-            const fill = document.getElementById('timer-fill');
-            fill.style.transition = 'none';
-            fill.style.width = '100%';
-            setTimeout(() => {
-                fill.style.transition = `width ${data.time}s linear`;
-                fill.style.width = '0%';
-            }, 100);
+            // Admin Buttons Logic
+            if(isAdmin) {
+                document.getElementById('admin-actions').style.display='flex';
+                document.getElementById('btn-show-scores').style.display='block';
+                document.getElementById('btn-next-q').style.display='none';
+            }
         });
-        socket.on('game_over', (data) => {
-            switchPage('p-result');
-            audio.stop();
+
+        socket.on('show_intermediate_results', (data) => {
+            // Play Results Music
+            audio.playResults();
             visuals.setMode('slow');
-            const box = document.getElementById('leaderboard-box');
-            box.innerHTML = '';
-            data.leaderboard.forEach((p, i) => {
-                box.innerHTML += `<div style="background:#222; padding:15px; margin:5px; display:flex; justify-content:space-between; border-radius:4px;"><span>#${i+1} ${p[0]}</span><span style="color:var(--netflix-red)">${p[1]}</span></div>`;
+
+            // Hide Question, Show Scores
+            document.getElementById('game-content').style.display='none';
+            const board = document.getElementById('int-leaderboard');
+            board.style.display='block';
+            const list = document.getElementById('int-list');
+            list.innerHTML='';
+            
+            data.leaderboard.slice(0,5).forEach((p, i) => {
+                list.innerHTML += `<div style="background:#222; padding:10px; margin:5px; display:flex; justify-content:space-between; border-radius:4px;">
+                    <span>#${i+1} ${p[0]}</span><span style="color:#00f3ff; font-weight:bold;">${p[1]}</span>
+                </div>`;
             });
+
+            // ROAST?
+            if(data.roast) {
+                const rBox = document.getElementById('roast-box');
+                rBox.style.display='block';
+                rBox.innerText = data.roast;
+            }
+
+            // Admin Logic: Switch button to Next
+            if(isAdmin) {
+                document.getElementById('btn-show-scores').style.display='none';
+                document.getElementById('btn-next-q').style.display='block';
+            }
+        });
+
+        socket.on('game_over', (data) => {
+            switchPage('p-result'); audio.playResults();
+            const b = document.getElementById('leaderboard-box'); b.innerHTML='';
+            data.leaderboard.forEach((p,i)=>b.innerHTML+=`<div style="background:#222; padding:15px; margin:5px; display:flex; justify-content:space-between;"><span>#${i+1} ${p[0]}</span><span>${p[1]}</span></div>`);
+            if(isAdmin) document.getElementById('admin-actions').style.display='none';
         });
 
         function switchPage(id) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
         }
 
-        // --- 3D VISUALS ---
+        // --- 3D VISUALS (Simplified for length) ---
         const visuals = {
-            scene: new THREE.Scene(),
-            camera: new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000),
-            renderer: new THREE.WebGLRenderer({canvas: document.getElementById('bg-canvas'), alpha: true}),
-            particles: null,
-            mode: 'slow',
-            time: 0,
+            scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000),
+            renderer: new THREE.WebGLRenderer({canvas:document.getElementById('bg-canvas'),alpha:true}),
+            particles: null, mode: 'slow', time: 0,
             init: function() {
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.camera.position.z = 50;
-                const geo = new THREE.BufferGeometry();
-                const pos = [];
-                for(let i=0; i<2000*3; i++) pos.push((Math.random()-0.5)*100);
-                geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-                const mat = new THREE.PointsMaterial({color: 0xe50914, size: 0.5});
-                this.particles = new THREE.Points(geo, mat);
-                this.scene.add(this.particles);
-                this.animate();
+                this.renderer.setSize(window.innerWidth,window.innerHeight); this.camera.position.z=50;
+                const geo = new THREE.BufferGeometry(); const pos=[];
+                for(let i=0;i<6000;i++) pos.push((Math.random()-0.5)*100);
+                geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+                this.particles = new THREE.Points(geo, new THREE.PointsMaterial({color:0xe50914,size:0.5}));
+                this.scene.add(this.particles); this.animate();
             },
-            setMode: function(newMode) { this.mode = newMode; },
+            setMode: function(m) { this.mode=m; },
             animate: function() {
-                requestAnimationFrame(this.animate.bind(this));
-                this.time += 0.01;
-                const positions = this.particles.geometry.attributes.position.array;
-                for(let i=0; i<2000; i++) {
-                    const x = positions[i*3], y = positions[i*3+1], z = positions[i*3+2];
-                    if(this.mode === 'slow') positions[i*3+1] += Math.sin(this.time + x) * 0.02;
-                    else if(this.mode === 'warp') { positions[i*3+2] += 2; if(positions[i*3+2] > 50) positions[i*3+2] = -50; }
-                    else if(this.mode === 'wave') positions[i*3+1] = Math.sin(x * 0.1 + this.time * 2) * 10;
-                    else if(this.mode === 'ring') { const angle = this.time + i * 0.01; positions[i*3] = Math.cos(angle) * 30 + (Math.random()-0.5)*2; positions[i*3+2] = Math.sin(angle) * 30 + (Math.random()-0.5)*2; }
-                    else if(this.mode === 'rain') { positions[i*3+1] -= 0.5; if(positions[i*3+1] < -50) positions[i*3+1] = 50; }
+                requestAnimationFrame(this.animate.bind(this)); this.time+=0.01;
+                const p = this.particles.geometry.attributes.position.array;
+                for(let i=0;i<2000;i++) {
+                    const x=p[i*3], y=p[i*3+1], z=p[i*3+2];
+                    if(this.mode==='slow') p[i*3+1]+=Math.sin(this.time+x)*0.02;
+                    else if(this.mode==='warp') { p[i*3+2]+=2; if(p[i*3+2]>50) p[i*3+2]=-50; }
+                    else if(this.mode==='wave') p[i*3+1]=Math.sin(x*0.1+this.time*2)*10;
+                    else if(this.mode==='ring') { const a=this.time+i*0.01; p[i*3]=Math.cos(a)*30+(Math.random()-0.5)*2; p[i*3+2]=Math.sin(a)*30+(Math.random()-0.5)*2; }
+                    else if(this.mode==='rain') { p[i*3+1]-=0.5; if(p[i*3+1]<-50) p[i*3+1]=50; }
                 }
-                this.particles.geometry.attributes.position.needsUpdate = true;
-                this.renderer.render(this.scene, this.camera);
+                this.particles.geometry.attributes.position.needsUpdate=true;
+                this.renderer.render(this.scene,this.camera);
             }
         };
         visuals.init();
-        window.addEventListener('resize', () => {
-            visuals.renderer.setSize(window.innerWidth, window.innerHeight);
-            visuals.camera.aspect = window.innerWidth / window.innerHeight;
-            visuals.camera.updateProjectionMatrix();
-        });
+        window.addEventListener('resize', () => { visuals.renderer.setSize(window.innerWidth, window.innerHeight); visuals.camera.aspect = window.innerWidth / window.innerHeight; visuals.camera.updateProjectionMatrix(); });
     </script>
 </body>
 </html>
